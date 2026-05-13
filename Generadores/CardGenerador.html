@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Video Studio V5 - Sharp Trivia</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #f8fafc;
+            --accent: #22d3ee;
+            --success: #22c55e;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .back-nav {
+            width: 100%;
+            max-width: 1600px;
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            display: inline-flex; align-items: center; padding: 8px 16px;
+            background: #334155; color: #f8fafc; text-decoration: none;
+            border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+            transition: 0.2s; border: 1px solid #475569;
+        }
+        .back-btn:hover { background: #475569; transform: translateX(-3px); }
+
+        .container {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 20px;
+            max-width: 1600px;
+            width: 100%;
+        }
+
+        .controls {
+            background: var(--panel);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+
+        .preview-area {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 80vh;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            background: #000;
+        }
+
+        .control-group { margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px; }
+        label { display: block; font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 8px; }
+        
+        select, input[type="text"], input[type="color"], input[type="file"], input[type="number"] {
+            width: 100%; padding: 10px; background: #334155; border: 1px solid #475569; border-radius: 8px; color: white; box-sizing: border-box;
+        }
+
+        .card-input-block {
+            background: #242f42; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #334155;
+        }
+
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        
+        .correct-check {
+            display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--success); cursor: pointer;
+        }
+
+        button {
+            width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; transition: 0.2s;
+            background: var(--primary); color: white;
+        }
+
+        #renderBtn { background: var(--success); }
+        #renderBtn:disabled { background: #475569; cursor: not-allowed; opacity: 0.6; }
+
+        .recording-status {
+            color: #fb7185; font-size: 0.85rem; margin-top: 15px; display: none; text-align: center; animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+    <div class="back-nav"><a href="index.html" class="back-btn">← Volver al Menú Principal</a></div>
+
+    <h1 style="font-weight: 800; margin-bottom: 20px;">Card Video Studio V5</h1>
+
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label>Formato y Resolución</label>
+                <select id="orientation">
+                    <option value="horizontal">Horizontal (YouTube)</option>
+                    <option value="vertical" selected>Vertical (Reels/Shorts)</option>
+                </select>
+                <select id="quality" style="margin-top:8px">
+                    <option value="720">HD (720p)</option>
+                    <option value="1080" selected>Full HD (1080p)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Duración y Animación</label>
+                <div style="display: flex; gap: 10px;">
+                    <div>
+                        <label>Segundos Anim.</label>
+                        <input type="number" id="duration" value="5" min="2">
+                    </div>
+                    <div>
+                        <label>Tipo</label>
+                        <select id="animType">
+                            <option value="pulse">Pulso</option>
+                            <option value="float">Flotante</option>
+                            <option value="slide">Slide</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Cartas de Juego</label>
+                <div class="card-input-block">
+                    <div class="card-header">
+                        <span>CARTA A</span>
+                        <label class="correct-check"><input type="checkbox" id="correctA"> Correcta</label>
+                    </div>
+                    <input type="text" id="nameA" value="Lothar Matthäus">
+                    <input type="file" id="imgA" accept="image/*" style="margin-top:5px">
+                </div>
+                <div class="card-input-block">
+                    <div class="card-header">
+                        <span>CARTA B</span>
+                        <label class="correct-check"><input type="checkbox" id="correctB" checked> Correcta</label>
+                    </div>
+                    <input type="text" id="nameB" value="Lionel Messi">
+                    <input type="file" id="imgB" accept="image/*" style="margin-top:5px">
+                </div>
+                <div class="card-input-block">
+                    <div class="card-header">
+                        <span>CARTA C</span>
+                        <label class="correct-check"><input type="checkbox" id="correctC"> Correcta</label>
+                    </div>
+                    <input type="text" id="nameC" value="Paolo Maldini">
+                    <input type="file" id="imgC" accept="image/*" style="margin-top:5px">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Fondo</label>
+                <select id="bgMode">
+                    <option value="solid">Fondo Sólido</option>
+                    <option value="transparent">Transparente</option>
+                </select>
+                <input type="color" id="bgColor" value="#00ff00" style="margin-top:8px;">
+            </div>
+
+            <button id="previewBtn">Previsualizar</button>
+            <button id="renderBtn">Exportar Video .webm</button>
+            <div id="status" class="recording-status">● GRABANDO VIDEO... ESPERA</div>
+        </div>
+
+        <div class="preview-area">
+            <canvas id="canvas" width="1080" height="1920"></canvas>
+            <div id="resLabel" class="res-info" style="color:var(--accent); font-size:0.8rem; margin-top:10px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const images = { a: null, b: null, c: null };
+        let animationId;
+        
+        const inputs = ['orientation', 'quality', 'duration', 'animType', 'bgMode', 'bgColor', 'nameA', 'nameB', 'nameC', 'correctA', 'correctB', 'correctC'];
+
+        function updateRes() {
+            const isVert = document.getElementById('orientation').value === 'vertical';
+            const quality = parseInt(document.getElementById('quality').value);
+            if (quality === 1080) { canvas.width = isVert ? 1080 : 1920; canvas.height = isVert ? 1920 : 1080; }
+            else { canvas.width = isVert ? 720 : 1280; canvas.height = isVert ? 1280 : 720; }
+            document.getElementById('resLabel').textContent = `ACTUAL: ${canvas.width} x ${canvas.height} px`;
+            draw(0);
+        }
+
+        ['A', 'B', 'C'].forEach(id => {
+            document.getElementById(`img${id}`).onchange = (e) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => { images[id.toLowerCase()] = img; draw(0); };
+                    img.src = ev.target.result;
+                };
+                if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+            };
+        });
+
+        function draw(progress) {
+            const isVert = document.getElementById('orientation').value === 'vertical';
+            const bgMode = document.getElementById('bgMode').value;
+            const bgColor = document.getElementById('bgColor').value;
+            const animType = document.getElementById('animType').value;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if(bgMode === 'solid') { ctx.fillStyle = bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+
+            const active = ['a', 'b', 'c'].filter(l => document.getElementById(`name${l.toUpperCase()}`).value.trim() !== "");
+            if(active.length === 0) return;
+
+            let cardW, cardH, gap, startX, startY;
+            if (isVert) {
+                const availH = canvas.height * 0.9;
+                cardH = (availH / active.length) * 0.75; cardW = cardH * 0.75; 
+                gap = (availH - (cardH * active.length)) / (active.length + 1);
+                startX = (canvas.width - cardW) / 2; startY = gap;
+            } else {
+                const availW = canvas.width * 0.9;
+                cardW = (availW / active.length) * 0.85; cardH = cardW * 1.4;
+                gap = (availW - (cardW * active.length)) / (active.length + 1);
+                startX = gap; startY = (canvas.height - cardH) / 2;
+            }
+
+            active.forEach((key, i) => {
+                const isCorrect = document.getElementById(`correct${key.toUpperCase()}`).checked;
+                const name = document.getElementById(`name${key.toUpperCase()}`).value;
+                const s = cardH / 650;
+
+                let offY = 0, offX = 0, scale = 1;
+                if (progress < 1) {
+                    const t = Date.now() / 300 + i;
+                    if(animType === 'float') offY = Math.sin(t) * (20 * s);
+                    if(animType === 'pulse') scale = 1 + Math.sin(t) * 0.02;
+                    if(animType === 'slide') offX = Math.cos(t) * (30 * s);
+                }
+
+                const x = (isVert ? startX : startX + (i * (cardW + gap)) + gap/2) + offX;
+                const y = (isVert ? startY + (i * (cardH + gap)) + gap/2 : startY) + offY;
+
+                ctx.save();
+                ctx.translate(x + cardW/2, y + cardH/2);
+                ctx.scale(scale, scale);
+                ctx.translate(-(x + cardW/2), -(y + cardH/2));
+
+                // CUERPO DE LA CARTA
+                ctx.beginPath(); ctx.roundRect(x, y, cardW, cardH, 20 * s);
+                if (progress >= 1 && !isCorrect) {
+                    ctx.fillStyle = "#334155";
+                } else {
+                    ctx.fillStyle = "#ffffff";
+                }
+                
+                // Aplicar sombra solo a la carta
+                ctx.shadowColor = "rgba(0,0,0,0.4)"; ctx.shadowBlur = 25 * s; ctx.shadowOffsetY = 10 * s;
+                ctx.fill();
+                
+                // --- REINICIO TOTAL DE SOMBRAS ---
+                ctx.shadowColor = "transparent";
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetY = 0;
+                ctx.shadowOffsetX = 0;
+
+                if (progress >= 1 && !isCorrect) ctx.globalAlpha = 0.3;
+
+                // Imagen
+                const p = 12 * s;
+                const iw = cardW - (p * 2);
+                const ih = cardH * 0.78;
+                ctx.save();
+                ctx.beginPath(); ctx.roundRect(x + p, y + p, iw, ih, 12 * s); ctx.clip();
+                if(images[key]) {
+                    const img = images[key];
+                    const sc = Math.max(iw / img.width, ih / img.height);
+                    ctx.drawImage(img, (x+p)+(iw-img.width*sc)/2, (y+p)+(ih-img.height*sc)/2, img.width*sc, img.height*sc);
+                } else { ctx.fillStyle = "#f1f5f9"; ctx.fillRect(x+p, y+p, iw, ih); }
+                ctx.restore();
+
+                // Nombre (Ahora se verá nítido sin duplicados)
+                ctx.fillStyle = (progress >= 1 && !isCorrect) ? "#94a3b8" : "#0f172a";
+                ctx.font = `bold ${38 * s}px Inter, sans-serif`;
+                ctx.textAlign = "center"; ctx.fillText(name, x + cardW / 2, y + cardH - (55 * s));
+
+                // BADGE
+                const br = 42 * s;
+                const bx = x + (5 * s); const by = y + (5 * s);
+
+                ctx.globalAlpha = 1.0; 
+                ctx.beginPath(); ctx.arc(bx, by, br + (5 * s), 0, Math.PI * 2);
+                ctx.fillStyle = "#ffffff"; ctx.fill();
+                
+                ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2);
+                if (progress >= 1 && isCorrect) ctx.fillStyle = "#22c55e";
+                else if (progress >= 1 && !isCorrect) ctx.fillStyle = "#64748b";
+                else {
+                    const colors = {a:'#22c55e', b:'#3b82f6', c:'#ef4444'};
+                    ctx.fillStyle = colors[key];
+                }
+                ctx.fill();
+
+                ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                if (progress >= 1 && isCorrect) {
+                    ctx.font = `bold ${52 * s}px Arial`; ctx.fillText("✓", bx, by);
+                } else {
+                    ctx.font = `bold ${52 * s}px Inter, sans-serif`; ctx.fillText(key, bx, by);
+                }
+                ctx.restore();
+            });
+        }
+
+        function play(durationSec, onEnd) {
+            const start = Date.now();
+            const dur = durationSec * 1000;
+            const revealTime = 3000;
+            function loop() {
+                const elapsed = Date.now() - start;
+                if (elapsed < dur) { draw(elapsed / dur); animationId = requestAnimationFrame(loop); }
+                else { draw(1); if (elapsed - dur < revealTime) animationId = requestAnimationFrame(loop); else if (onEnd) onEnd(); }
+            }
+            animationId = requestAnimationFrame(loop);
+        }
+
+        document.getElementById('previewBtn').onclick = () => { cancelAnimationFrame(animationId); play(parseFloat(document.getElementById('duration').value)); };
+        document.getElementById('renderBtn').onclick = async () => {
+            const dur = parseFloat(document.getElementById('duration').value);
+            const stream = canvas.captureStream(60);
+            const rec = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 15000000 });
+            const chunks = [];
+            rec.ondataavailable = e => chunks.push(e.data);
+            rec.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                a.download = `trivia_${Date.now()}.webm`; a.click();
+                document.getElementById('renderBtn').disabled = false; document.getElementById('status').style.display = 'none';
+            };
+            document.getElementById('renderBtn').disabled = true; document.getElementById('status').style.display = 'block';
+            rec.start(); play(dur, () => rec.stop());
+        };
+
+        inputs.forEach(id => { document.getElementById(id).onchange = updateRes; document.getElementById(id).oninput = () => { cancelAnimationFrame(animationId); draw(0); }; });
+        window.onload = updateRes;
+    </script>
+</body>
+</html>

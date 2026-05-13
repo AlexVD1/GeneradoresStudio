@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graphic Studio V4 - Checkbox Status</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #f8fafc;
+            --success: #22c55e;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .back-nav {
+            width: 100%;
+            max-width: 1600px;
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            background: #334155;
+            color: #f8fafc;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            border: 1px solid #475569;
+        }
+        .back-btn:hover {
+            background: #475569;
+            transform: translateX(-3px);
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 20px;
+            max-width: 1600px;
+            width: 100%;
+        }
+
+        .controls {
+            background: var(--panel);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+
+        .preview-area {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            background-image: linear-gradient(45deg, #2a3547 25%, transparent 25%), 
+                              linear-gradient(-45deg, #2a3547 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #2a3547 75%), 
+                              linear-gradient(-45deg, transparent 75%, #2a3547 75%);
+            background-size: 20px 20px;
+        }
+
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 6px; }
+        
+        input[type="text"], select, input[type="range"], input[type="color"] {
+            width: 100%; padding: 10px; background: #334155; border: 1px solid #475569; border-radius: 8px; color: white; box-sizing: border-box;
+        }
+
+        .option-card {
+            background: #242f42;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #334155;
+        }
+
+        .option-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .correct-toggle {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.7rem;
+            color: var(--success);
+            cursor: pointer;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .color-input {
+            width: 45px !important;
+            height: 40px;
+            padding: 2px !important;
+            cursor: pointer;
+        }
+
+        button {
+            width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; transition: 0.2s;
+            background: var(--primary); color: white;
+        }
+        button:hover { filter: brightness(1.1); }
+    </style>
+</head>
+<body>
+    <div class="back-nav"><a href="index.html" class="back-btn">← Volver al Menú Principal</a></div>
+
+    <h1 style="font-weight: 800; margin-bottom: 20px;">Graphic Studio V4</h1>
+
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label>Opciones y Estado</label>
+                
+                <div class="option-card">
+                    <div class="option-header">
+                        <span>Opción A</span>
+                        <label class="correct-toggle"><input type="checkbox" id="statusA" checked> ¿Correcta?</label>
+                    </div>
+                    <div class="input-row">
+                        <input type="text" id="textA" value="Meal">
+                        <input type="color" id="colorA" class="color-input" value="#22c55e">
+                    </div>
+                </div>
+
+                <div class="option-card">
+                    <div class="option-header">
+                        <span>Opción B</span>
+                        <label class="correct-toggle"><input type="checkbox" id="statusB" checked> ¿Correcta?</label>
+                    </div>
+                    <div class="input-row">
+                        <input type="text" id="textB" value="Lunch">
+                        <input type="color" id="colorB" class="color-input" value="#3b82f6">
+                    </div>
+                </div>
+
+                <div class="option-card">
+                    <div class="option-header">
+                        <span>Opción C</span>
+                        <label class="correct-toggle"><input type="checkbox" id="statusC" checked> ¿Correcta?</label>
+                    </div>
+                    <div class="input-row">
+                        <input type="text" id="textC" value="Dinner">
+                        <input type="color" id="colorC" class="color-input" value="#ef4444">
+                    </div>
+                </div>
+
+                <div class="option-card">
+                    <div class="option-header">
+                        <span>Opción D</span>
+                        <label class="correct-toggle"><input type="checkbox" id="statusD" checked> ¿Correcta?</label>
+                    </div>
+                    <div class="input-row">
+                        <input type="text" id="textD" value="" placeholder="Opcional...">
+                        <input type="color" id="colorD" class="color-input" value="#f59e0b">
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Fondo</label>
+                <select id="bgMode">
+                    <option value="transparent">Transparente</option>
+                    <option value="solid">Sólido</option>
+                </select>
+                <input type="color" id="bgColor" value="#0056d2" style="margin-top:8px; display:none">
+            </div>
+
+            <div class="control-group">
+                <label>Estilo Cápsula</label>
+                <div style="display: flex; gap: 5px;">
+                    <input type="color" id="boxColor" value="#ffffff">
+                    <input type="color" id="textColor" value="#333333">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Tamaño de Fuente</label>
+                <input type="range" id="fontSize" min="30" max="120" value="70">
+            </div>
+
+            <button id="downloadBtn">Descargar PNG</button>
+        </div>
+
+        <div class="preview-area">
+            <canvas id="canvas" width="1080" height="1080"></canvas>
+            <p style="color: #64748b; font-size: 0.8rem; margin-top: 10px;">Las opciones desmarcadas se verán traslúcidas.</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const inputs = [
+            'textA', 'textB', 'textC', 'textD', 
+            'colorA', 'colorB', 'colorC', 'colorD',
+            'statusA', 'statusB', 'statusC', 'statusD',
+            'bgMode', 'bgColor', 'boxColor', 'textColor', 'fontSize'
+        ];
+
+        function draw() {
+            const bgMode = document.getElementById('bgMode').value;
+            const bgColor = document.getElementById('bgColor').value;
+            document.getElementById('bgColor').style.display = bgMode === 'solid' ? 'block' : 'none';
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (bgMode === 'solid') {
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            const options = [
+                { l: 'a', t: document.getElementById('textA').value, c: document.getElementById('colorA').value, s: document.getElementById('statusA').checked },
+                { l: 'b', t: document.getElementById('textB').value, c: document.getElementById('colorB').value, s: document.getElementById('statusB').checked },
+                { l: 'c', t: document.getElementById('textC').value, c: document.getElementById('colorC').value, s: document.getElementById('statusC').checked },
+                { l: 'd', t: document.getElementById('textD').value, c: document.getElementById('colorD').value, s: document.getElementById('statusD').checked }
+            ].filter(o => o.t.trim() !== "");
+
+            const boxColor = document.getElementById('boxColor').value;
+            const textColor = document.getElementById('textColor').value;
+            const fSize = parseInt(document.getElementById('fontSize').value);
+
+            const totalHeight = options.length * 220 - 40;
+            const startY = (canvas.height - totalHeight) / 2;
+
+            options.forEach((opt, i) => {
+                const y = startY + (i * 220);
+                const h = 180;
+                const w = canvas.width - 200;
+                const x = 100;
+
+                ctx.save();
+                
+                // Aplicar traslucidez si no es correcta
+                if (!opt.s) {
+                    ctx.globalAlpha = 0.45;
+                }
+
+                // Sombra
+                ctx.shadowColor = "rgba(0,0,0,0.3)";
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetY = 8;
+
+                // Cuerpo
+                ctx.beginPath();
+                ctx.roundRect(x + 50, y, w - 50, h, h/2);
+                ctx.fillStyle = boxColor;
+                ctx.fill();
+                ctx.restore();
+
+                ctx.save();
+                if (!opt.s) ctx.globalAlpha = 0.45;
+
+                // Badge (Letra)
+                const centerX = x + 90;
+                const centerY = y + h/2;
+                const radius = 85;
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius + 8, 0, Math.PI * 2);
+                ctx.fillStyle = "#ffffff";
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fillStyle = opt.c;
+                ctx.fill();
+
+                ctx.fillStyle = "white";
+                ctx.font = `bold ${radius * 1.1}px Inter, Arial`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(opt.l, centerX, centerY);
+
+                // Texto
+                ctx.fillStyle = textColor;
+                ctx.font = `bold ${fSize}px Inter, Arial`;
+                ctx.textAlign = "left";
+                ctx.fillText(opt.t, centerX + radius + 60, centerY);
+
+                ctx.restore();
+            });
+        }
+
+        inputs.forEach(id => document.getElementById(id).addEventListener('input', draw));
+        document.getElementById('downloadBtn').onclick = () => {
+            const a = document.createElement('a');
+            a.download = `bullets_v4_${Date.now()}.png`;
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+        };
+
+        window.onload = draw;
+    </script>
+</body>
+</html>
