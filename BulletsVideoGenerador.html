@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graphic Video Studio - Trivia V1</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #f8fafc;
+            --success: #22c55e;
+            --accent: #22d3ee;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .back-nav {
+            width: 100%;
+            max-width: 1600px;
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            display: inline-flex; align-items: center; padding: 8px 16px;
+            background: #334155; color: #f8fafc; text-decoration: none;
+            border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+            transition: 0.2s; border: 1px solid #475569;
+        }
+        .back-btn:hover { background: #475569; transform: translateX(-3px); }
+
+        .container {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 20px;
+            max-width: 1600px;
+            width: 100%;
+        }
+
+        .controls {
+            background: var(--panel);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+
+        .preview-area {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 80vh;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            background: #000;
+        }
+
+        .control-group { margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px; }
+        label { display: block; font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 6px; }
+        
+        select, input[type="text"], input[type="number"], input[type="color"], input[type="file"] {
+            width: 100%; padding: 10px; background: #334155; border: 1px solid #475569; border-radius: 8px; color: white; box-sizing: border-box;
+        }
+
+        .option-card {
+            background: #242f42; padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #334155;
+        }
+
+        .option-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+
+        .correct-toggle {
+            display: flex; align-items: center; gap: 5px; font-size: 0.7rem; color: var(--success); cursor: pointer;
+        }
+
+        button {
+            width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; transition: 0.2s;
+            background: var(--primary); color: white;
+        }
+
+        #renderBtn { background: var(--success); }
+        #renderBtn:disabled { background: #475569; opacity: 0.6; cursor: not-allowed; }
+
+        .recording-status {
+            color: #fb7185; font-size: 0.85rem; margin-top: 15px; display: none; text-align: center; animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+    <div class="back-nav"><a href="index.html" class="back-btn">← Volver al Menú Principal</a></div>
+
+    <h1 style="font-weight: 800; margin-bottom: 20px;">Graphic Video Studio</h1>
+
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label>Formato y Animación</label>
+                <select id="orientation">
+                    <option value="cuadrado">Cuadrado (1080x1080)</option>
+                    <option value="horizontal">Horizontal (1920x1080)</option>
+                    <option value="vertical" selected>Vertical (1080x1920)</option>
+                </select>
+                <div style="display: flex; gap: 10px; margin-top: 8px;">
+                    <div>
+                        <label>Segundos</label>
+                        <input type="number" id="duration" value="5" min="2">
+                    </div>
+                    <div>
+                        <label>Tipo</label>
+                        <select id="animType">
+                            <option value="float">Flotante</option>
+                            <option value="pulse">Pulso</option>
+                            <option value="slide">Slide</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="slideControls">
+                <div class="control-group">
+                    <label>Título e Imagen</label>
+                    <input type="text" id="slideTitle" value="¿CUÁL ES CORRECTA?" style="margin-bottom:8px">
+                    <input type="file" id="mainImage" accept="image/*">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Opciones de Trivia</label>
+                <div class="option-card">
+                    <div class="option-header"><span>OPCIÓN A</span><label class="correct-toggle"><input type="checkbox" id="correctA"> ¿Correcta?</label></div>
+                    <div style="display: flex; gap: 8px;"><input type="text" id="textA" value="Opción Incorrecta"><input type="color" id="colorA" value="#22c55e" style="width:45px"></div>
+                </div>
+                <div class="option-card">
+                    <div class="option-header"><span>OPCIÓN B</span><label class="correct-toggle"><input type="checkbox" id="correctB" checked> ¿Correcta?</label></div>
+                    <div style="display: flex; gap: 8px;"><input type="text" id="textB" value="Respuesta Correcta"><input type="color" id="colorB" value="#3b82f6" style="width:45px"></div>
+                </div>
+                <div class="option-card">
+                    <div class="option-header"><span>OPCIÓN C</span><label class="correct-toggle"><input type="checkbox" id="correctC"> ¿Correcta?</label></div>
+                    <div style="display: flex; gap: 8px;"><input type="text" id="textC" value="Otra Incorrecta"><input type="color" id="colorC" value="#ef4444" style="width:45px"></div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Escena</label>
+                <select id="bgMode">
+                    <option value="solid">Fondo Sólido</option>
+                    <option value="transparent">Transparente (Chroma)</option>
+                </select>
+                <input type="color" id="bgColor" value="#00ff00" style="margin-top:8px;">
+            </div>
+
+            <button id="previewBtn">Previsualizar Animación</button>
+            <button id="renderBtn">Exportar Video .webm</button>
+            <div id="status" class="recording-status">● GRABANDO VIDEO... ESPERA</div>
+        </div>
+
+        <div class="preview-area">
+            <canvas id="canvas" width="1080" height="1920"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let mainImgObj = null;
+        let animationId;
+
+        function updateRes() {
+            const orientation = document.getElementById('orientation').value;
+            if(orientation === 'cuadrado') { canvas.width = 1080; canvas.height = 1080; }
+            else if(orientation === 'horizontal') { canvas.width = 1920; canvas.height = 1080; }
+            else { canvas.width = 1080; canvas.height = 1920; }
+            draw(0);
+        }
+
+        document.getElementById('mainImage').onchange = (e) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => { mainImgObj = img; draw(0); };
+                img.src = ev.target.result;
+            };
+            if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+        };
+
+        function draw(progress) {
+            const orientation = document.getElementById('orientation').value;
+            const bgMode = document.getElementById('bgMode').value;
+            const bgColor = document.getElementById('bgColor').value;
+            const animType = document.getElementById('animType').value;
+            const title = document.getElementById('slideTitle').value;
+            const boxColor = "#ffffff";
+            const textColor = "#333333";
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (bgMode === 'solid') { ctx.fillStyle = bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+
+            const options = ['A', 'B', 'C'].map(l => ({
+                l, 
+                t: document.getElementById(`text${l}`).value, 
+                c: document.getElementById(`color${l}`).value, 
+                isCorrect: document.getElementById(`correct${l}`).checked
+            })).filter(o => o.t.trim() !== "");
+
+            const s = Math.min(canvas.width, canvas.height) / 1080;
+
+            // Lógica de Renderizado por Formato
+            if (orientation === 'vertical') {
+                // Título
+                ctx.fillStyle = "#ffffff"; ctx.font = `bold ${70 * s}px Inter, Arial`;
+                ctx.textAlign = "center"; ctx.fillText(title, canvas.width/2, 120 * s);
+
+                // Imagen Central
+                const iw = 920 * s, ih = 800 * s, ix = (canvas.width - iw)/2, iy = 200 * s;
+                drawMainImage(ix, iy, iw, ih, progress, animType, s);
+
+                // Opciones
+                const bStartY = iy + ih + 80 * s;
+                options.forEach((opt, i) => drawCapsule(opt, 80 * s, bStartY + (i * 200 * s), canvas.width - 160 * s, 160 * s, progress, animType, s));
+            } else if (orientation === 'horizontal') {
+                ctx.fillStyle = "#ffffff"; ctx.font = `bold ${60 * s}px Inter, Arial`;
+                ctx.textAlign = "left"; ctx.fillText(title, 80 * s, 100 * s);
+
+                const iw = 800 * s, ih = 800 * s, ix = 80 * s, iy = 150 * s;
+                drawMainImage(ix, iy, iw, ih, progress, animType, s);
+
+                const bx = 950 * s;
+                const totalH = options.length * 200 * s;
+                const bStartY = iy + (ih - totalH) / 2;
+                options.forEach((opt, i) => drawCapsule(opt, bx, bStartY + (i * 200 * s), canvas.width - bx - 80 * s, 160 * s, progress, animType, s));
+            } else {
+                const totalH = options.length * 220 * s;
+                const bStartY = (canvas.height - totalH) / 2;
+                options.forEach((opt, i) => drawCapsule(opt, 100 * s, bStartY + (i * 220 * s), canvas.width - 200 * s, 180 * s, progress, animType, s));
+            }
+        }
+
+        function drawMainImage(x, y, w, h, progress, animType, s) {
+            let offY = 0, offX = 0, scale = 1;
+            if (progress < 1) {
+                const t = Date.now() / 400;
+                if(animType === 'float') offY = Math.sin(t) * (20 * s);
+                if(animType === 'pulse') scale = 1 + Math.sin(t) * 0.02;
+                if(animType === 'slide') offX = Math.cos(t) * (30 * s);
+            }
+
+            ctx.save();
+            ctx.translate(x + w/2 + offX, y + h/2 + offY);
+            ctx.scale(scale, scale);
+            ctx.translate(-(x + w/2), -(y + h/2));
+
+            ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 30 * s; ctx.shadowOffsetY = 15 * s;
+            ctx.beginPath(); ctx.roundRect(x, y, w, h, 20 * s);
+            ctx.fillStyle = "#ffffff"; ctx.fill(); 
+            ctx.clip();
+            if(mainImgObj) {
+                const sc = Math.max(w/mainImgObj.width, h/mainImgObj.height);
+                ctx.drawImage(mainImgObj, x + (w-mainImgObj.width*sc)/2, y + (h-mainImgObj.height*sc)/2, mainImgObj.width*sc, mainImgObj.height*sc);
+            } else { ctx.fillStyle = "#334155"; ctx.fillRect(x, y, w, h); }
+            ctx.restore();
+        }
+
+        function drawCapsule(opt, x, y, w, h, progress, animType, s) {
+            let offY = 0, offX = 0, scale = 1;
+            if (progress < 1) {
+                const t = Date.now() / 400 + opt.l.charCodeAt(0);
+                if(animType === 'float') offY = Math.sin(t) * (15 * s);
+                if(animType === 'pulse') scale = 1 + Math.sin(t) * 0.015;
+                if(animType === 'slide') offX = Math.cos(t) * (25 * s);
+            }
+
+            ctx.save();
+            ctx.translate(x + w/2 + offX, y + h/2 + offY);
+            ctx.scale(scale, scale);
+            ctx.translate(-(x + w/2), -(y + h/2));
+
+            // Cuerpo de la cápsula
+            ctx.beginPath(); ctx.roundRect(x + 50 * s, y, w - 50 * s, h, h/2);
+            if (progress >= 1 && !opt.isCorrect) {
+                ctx.fillStyle = "#334155"; // Gris sólido si es incorrecta
+            } else {
+                ctx.fillStyle = "#ffffff";
+            }
+            ctx.shadowColor = "rgba(0,0,0,0.3)"; ctx.shadowBlur = 15 * s; ctx.shadowOffsetY = 8 * s;
+            ctx.fill();
+            ctx.shadowColor = "transparent";
+
+            // Badge
+            const cx = x + 85 * s, cy = y + h/2, r = h/2.1;
+            ctx.beginPath(); ctx.arc(cx, cy, r + 5 * s, 0, Math.PI * 2);
+            ctx.fillStyle = "#ffffff"; ctx.fill();
+            ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            
+            if (progress >= 1 && opt.isCorrect) ctx.fillStyle = "#22c55e"; // Verde al final
+            else if (progress >= 1 && !opt.isCorrect) ctx.fillStyle = "#64748b"; // Gris badge
+            else ctx.fillStyle = opt.c;
+            ctx.fill();
+
+            // Letra o Paloma
+            ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            if (progress >= 1 && opt.isCorrect) {
+                ctx.font = `bold ${h * 0.6}px Arial`; ctx.fillText("✓", cx, cy);
+            } else {
+                ctx.font = `bold ${h * 0.5}px Inter, Arial`; ctx.fillText(opt.l, cx, cy);
+            }
+
+            // Texto
+            ctx.fillStyle = (progress >= 1 && !opt.isCorrect) ? "#94a3b8" : "#333333";
+            ctx.font = `bold ${h * 0.4}px Inter, Arial`; ctx.textAlign = "left";
+            ctx.fillText(opt.t, cx + r + 30 * s, cy);
+
+            ctx.restore();
+        }
+
+        function play(durationSec, onEnd) {
+            const start = Date.now();
+            const dur = durationSec * 1000;
+            const revealTime = 3000; // 3 segundos de resultado
+            function loop() {
+                const elapsed = Date.now() - start;
+                if (elapsed < dur) { draw(elapsed / dur); animationId = requestAnimationFrame(loop); }
+                else { draw(1); if (elapsed - dur < revealTime) animationId = requestAnimationFrame(loop); else if (onEnd) onEnd(); }
+            }
+            animationId = requestAnimationFrame(loop);
+        }
+
+        document.getElementById('previewBtn').onclick = () => { cancelAnimationFrame(animationId); play(parseFloat(document.getElementById('duration').value)); };
+
+        document.getElementById('renderBtn').onclick = async () => {
+            const dur = parseFloat(document.getElementById('duration').value);
+            const stream = canvas.captureStream(60);
+            const rec = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 15000000 });
+            const chunks = [];
+            rec.ondataavailable = e => chunks.push(e.data);
+            rec.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                a.download = `trivia_video_${Date.now()}.webm`; a.click();
+                document.getElementById('renderBtn').disabled = false; document.getElementById('status').style.display = 'none';
+            };
+            document.getElementById('renderBtn').disabled = true; document.getElementById('status').style.display = 'block';
+            rec.start(); play(dur, () => rec.stop());
+        };
+
+        document.getElementById('orientation').onchange = updateRes;
+        window.onload = updateRes;
+    </script>
+</body>
+</html>
