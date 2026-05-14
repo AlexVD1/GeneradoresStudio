@@ -160,7 +160,15 @@
                 </div>
             </div>
 
+            
             <div class="control-group">
+                <label>Ajuste de Texto</label>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-size: 0.6rem;">Tamaño de Fuente Opciones</label>
+                    <input type="range" id="optFontSize" min="10" max="100" value="40">
+                </div>
+            </div>
+<div class="control-group">
                 <label>Escena</label>
                 <select id="bgMode">
                     <option value="solid">Fondo Sólido</option>
@@ -324,10 +332,21 @@
                 ctx.font = `bold ${h * 0.5}px Inter, Arial`; ctx.fillText(opt.l, cx, cy);
             }
 
-            // Texto
+            
+            // Texto con ajuste dinámico y manual
+            const maxW = w - (cx - x + r + 60 * s);
+            let baseSize = (h * (document.getElementById('optFontSize').value / 100));
+            ctx.font = `bold ${baseSize}px Inter, Arial`;
+            
+            while (ctx.measureText(opt.t).width > maxW && baseSize > 10) {
+                baseSize -= 2;
+                ctx.font = `bold ${baseSize}px Inter, Arial`;
+            }
+
             ctx.fillStyle = (progress >= 1 && !opt.isCorrect) ? "#94a3b8" : "#333333";
-            ctx.font = `bold ${h * 0.4}px Inter, Arial`; ctx.textAlign = "left";
+            ctx.textAlign = "left";
             ctx.fillText(opt.t, cx + r + 30 * s, cy);
+
 
             ctx.restore();
         }
