@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -63,7 +64,7 @@
             max-width: 100%;
             background: #000;
             border-radius: 12px;
-            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
         }
 
         .control-group {
@@ -95,7 +96,10 @@
             color: #22d3ee;
         }
 
-        input[type="range"], input[type="color"], input[type="number"], select {
+        input[type="range"],
+        input[type="color"],
+        input[type="number"],
+        select {
             width: 100%;
             padding: 10px;
             background: #334155;
@@ -116,9 +120,21 @@
             transition: all 0.2s ease;
         }
 
-        #previewBtn { background: #334155; color: white; border: 1px solid #475569; }
-        #renderBtn { background: var(--primary); color: white; }
-        #renderBtn:disabled { background: #475569; opacity: 0.6; }
+        #previewBtn {
+            background: #334155;
+            color: white;
+            border: 1px solid #475569;
+        }
+
+        #renderBtn {
+            background: var(--primary);
+            color: white;
+        }
+
+        #renderBtn:disabled {
+            background: #475569;
+            opacity: 0.6;
+        }
 
         .recording-status {
             color: #fb7185;
@@ -130,8 +146,18 @@
             animation: pulse 1.5s infinite;
         }
 
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
         .back-nav {
             width: 100%;
             max-width: 1400px;
@@ -139,6 +165,7 @@
             justify-content: flex-start;
             margin-bottom: 20px;
         }
+
         .back-btn {
             display: inline-flex;
             align-items: center;
@@ -152,13 +179,14 @@
             transition: all 0.2s;
             border: 1px solid #475569;
         }
+
         .back-btn:hover {
             background: #475569;
             transform: translateX(-3px);
         }
-    
     </style>
 </head>
+
 <body>
     <div class="back-nav"><a href="index.html" class="back-btn">← Volver al Menú Principal</a></div>
 
@@ -236,7 +264,22 @@
                 <label>Brillo (Glow)</label>
                 <input type="range" id="glow" min="0" max="60" value="25">
             </div>
-            
+
+            <hr style="border: 0; border-top: 1px solid #475569; margin: 20px 0;">
+
+            <div class="control-group">
+                <label>Color de Borde</label>
+                <input type="color" id="borderColor" value="#ffffff">
+            </div>
+
+            <div class="control-group">
+                <div class="label-header">
+                    <label>Grosor de Borde</label>
+                    <span id="borderWidthVal" class="pixel-value">2px</span>
+                </div>
+                <input type="range" id="borderWidth" min="0" max="20" value="2">
+            </div>
+
             <button id="previewBtn">Previsualizar</button>
             <button id="renderBtn">Exportar Video</button>
             <div id="status" class="recording-status">● GRABANDO...</div>
@@ -259,17 +302,23 @@
         const barThicknessInput = document.getElementById('barThickness');
         const barLengthVal = document.getElementById('barLengthVal');
         const barThicknessVal = document.getElementById('barThicknessVal');
+        const borderWidthInput = document.getElementById('borderWidth');
+        const borderWidthVal = document.getElementById('borderWidthVal');
 
         let animationId;
 
         // Actualizar indicadores numéricos en tiempo real
         barLengthInput.oninput = () => {
             barLengthVal.textContent = `${barLengthInput.value}px`;
-            draw(0.6); // Redibujar preview
+            draw(0.6);
         };
         barThicknessInput.oninput = () => {
             barThicknessVal.textContent = `${barThicknessInput.value}px`;
-            draw(0.6); // Redibujar preview
+            draw(0.6);
+        };
+        borderWidthInput.oninput = () => {
+            borderWidthVal.textContent = `${borderWidthInput.value}px`;
+            draw(0.6);
         };
 
         function draw(progress) {
@@ -283,6 +332,8 @@
             const bgColor = document.getElementById('bgColor').value;
             const radius = parseInt(document.getElementById('borderRadius').value);
             const glow = parseInt(document.getElementById('glow').value);
+            const borderColor = document.getElementById('borderColor').value;
+            const borderWidth = parseInt(document.getElementById('borderWidth').value);
 
             let visualProgress = (mode === 'countup') ? progress : (1 - progress);
             let displaySeconds = (mode === 'countup') ? Math.floor(progress * duration) : Math.ceil((1 - progress) * duration);
@@ -297,8 +348,13 @@
 
             ctx.beginPath();
             ctx.roundRect(x, y, w, h, radius);
-            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.fillStyle = '#4b4b4b';
             ctx.fill();
+            if (borderWidth > 0) {
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = borderWidth;
+                ctx.stroke();
+            }
 
             if (visualProgress > 0) {
                 ctx.save();
@@ -317,17 +373,36 @@
             }
 
             if (showCounter) {
-                ctx.fillStyle = "white";
-                ctx.font = `bold ${Math.max(24, barThickness * 0.8)}px Inter, Arial`;
+                const fontSize = Math.max(24, barThickness * 0.8);
+                ctx.font = `bold ${fontSize}px Inter, Arial`;
                 ctx.textAlign = "center";
+                const textX = canvas.width / 2;
+                const textY = (orientation === 'horizontal')
+                    ? (y + h + fontSize + 40)
+                    : (y + h + 40) + 40;
+
+                // Fondo gris sólido detrás del número
+                const textMetrics = ctx.measureText(displaySeconds);
+                const padH = fontSize * 0.4;
+                const padV = fontSize * 0.25;
+                const bgW = textMetrics.width + padH * 2;
+                const bgH = fontSize + padV * 2;
+                const bgX = textX - bgW / 2;
+                const bgY = textY - fontSize - padV + (fontSize * 0.15);
+                const bgRadius = Math.min(8, bgH * 0.25);
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#4b4b4b';
+                ctx.beginPath();
+                ctx.roundRect(bgX, bgY, bgW, bgH, bgRadius - 1);
+                ctx.fill();
+
+
+                // Relleno del texto
+                ctx.fillStyle = "white";
                 ctx.shadowBlur = 10;
                 ctx.shadowColor = "black";
-                
-                if (orientation === 'horizontal') {
-                    ctx.fillText(displaySeconds, canvas.width / 2, y + h + (barThickness * 0.8) + 10);
-                } else {
-                    ctx.fillText(displaySeconds, canvas.width / 2, y + h + 40);
-                }
+                ctx.fillText(displaySeconds, textX, textY);
+                ctx.shadowBlur = 0;
             }
         }
 
@@ -351,7 +426,7 @@
 
         renderBtn.onclick = async () => {
             const duration = parseFloat(document.getElementById('duration').value);
-            const stream = canvas.captureStream(60); 
+            const stream = canvas.captureStream(60);
             const recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 5000000 });
             const chunks = [];
             recorder.ondataavailable = (e) => chunks.push(e.data);
@@ -374,4 +449,5 @@
         window.onload = () => draw(0.6);
     </script>
 </body>
+
 </html>

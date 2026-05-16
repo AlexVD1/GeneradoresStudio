@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Extractor Studio V2 - Ultra Robust</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #f8fafc;
+            --accent: #22d3ee;
+            --success: #22c55e;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .back-nav {
+            width: 100%;
+            max-width: 1400px;
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            display: inline-flex; align-items: center; padding: 8px 16px;
+            background: #334155; color: #f8fafc; text-decoration: none;
+            border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+            transition: 0.2s; border: 1px solid #475569;
+        }
+        .back-btn:hover { background: #475569; transform: translateX(-3px); }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--panel);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 { font-weight: 800; margin-bottom: 5px; }
+        .subtitle { color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px; }
+
+        label { display: block; font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 8px; }
+        
+        textarea {
+            width: 100%; 
+            height: 420px; 
+            padding: 14px; 
+            background: #242f42; 
+            border: 1px solid #475569; 
+            border-radius: 12px; 
+            color: white; 
+            box-sizing: border-box; 
+            font-family: inherit;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            resize: none;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus { outline: none; border-color: var(--primary); }
+
+        button {
+            width: 100%; padding: 14px; margin-top: 15px; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; transition: 0.2s;
+            background: var(--primary); color: white; font-size: 0.95rem;
+        }
+        button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+        .btn-success { background: var(--success); }
+
+        .stats {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: var(--accent);
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="back-nav"><a href="index.html" class="back-btn">← Volver al Menú Principal</a></div>
+
+    <div style="text-align: center; margin-bottom: 10px;">
+        <h1>Question Extractor Studio V2</h1>
+        <div class="subtitle">Extractor inteligente compatible con transcripciones limpias y crudas</div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <label for="inputText">Texto Origen / Transcripción</label>
+            <textarea id="inputText" placeholder="Pega aquí tu texto, guion o transcripción de video...&#10;&#10;Incluso si no tiene signos de interrogación, el sistema inteligente detectará las preguntas por palabras clave."></textarea>
+            <button id="extractBtn">Extraer Preguntas</button>
+        </div>
+
+        <div class="card">
+            <label for="outputText">Preguntas Extraídas</label>
+            <textarea id="outputText" readonly placeholder="Las preguntas procesadas aparecerán aquí..."></textarea>
+            <button id="copyBtn" class="btn-success">Copiar Resultado</button>
+            <div id="countStats" class="stats">Método de detección: Ninguno</div>
+        </div>
+    </div>
+
+    <script>
+        const inputTextArea = document.getElementById('inputText');
+        const outputTextArea = document.getElementById('outputText');
+        const extractBtn = document.getElementById('extractBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const countStats = document.getElementById('countStats');
+
+        function doExtraction() {
+            const text = inputTextArea.value;
+            let questions = [];
+            let methodUsed = "Ninguno";
+
+            // CAPA 1: Intentar buscar con la estructura tradicional completa ¿ ... ?
+            const regexFull = /¿[^?]+\?/g;
+            let matches = text.match(regexFull);
+
+            if (matches && matches.length > 0) {
+                questions = matches.map(q => q.replace(/\s+/g, ' ').trim());
+                methodUsed = "Signos Estándar (¿ ?)";
+            } else {
+                // CAPA 2: Si no hay ¿, buscar fragmentos que terminen puramente en ?
+                const regexEnd = /[^.!?\n\r]+\?/g;
+                matches = text.match(regexEnd);
+                
+                if (matches && matches.length > 0) {
+                    questions = matches.map(q => {
+                        let clean = q.replace(/\s+/g, ' ').trim();
+                        // Remover restos de puntuación previa si quedan al inicio
+                        clean = clean.replace(/^[^¿A-Za-z0-9ÁÉÍÓÚáéíóú]+/g, '');
+                        if (!clean.startsWith('¿')) clean = '¿' + clean;
+                        return clean;
+                    });
+                    methodUsed = "Signos Parciales ( Solo ? )";
+                } else {
+                    // CAPA 3: Modo Transcripción Cruda (Sin ningún tipo de signo de puntuación)
+                    // Separamos el texto por pausas comunes (puntos, comas, saltos de línea)
+                    const phrases = text.split(/[.\n,]+/);
+                    // Expresión para detectar palabras clave interrogativas al inicio de una frase
+                    const questionWords = /^(¿)?\s*(qué|que|quien|quién|cuál|cual|cómo|como|cuándo|cuando|dónde|donde|por qué|por que|cuánto|cuanto)/i;
+                    
+                    phrases.forEach(p => {
+                        let cleanPhrase = p.replace(/\s+/g, ' ').trim();
+                        if (questionWords.test(cleanPhrase)) {
+                            // Reconstruir la estructura gramatical
+                            if (!cleanPhrase.startsWith('¿')) cleanPhrase = '¿' + cleanPhrase;
+                            if (!cleanPhrase.endsWith('?')) cleanPhrase = cleanPhrase + '?';
+                            questions.push(cleanPhrase);
+                        }
+                    });
+                    if (questions.length > 0) {
+                        methodUsed = "Detección por Palabras Clave (Modo Transcripción)";
+                    }
+                }
+            }
+
+            // Renderizar resultados con el formato solicitado
+            if (questions.length > 0) {
+                outputTextArea.value = questions.map(q => `${q} ...`).join('\n');
+                countStats.textContent = `Método: ${methodUsed} | Encontradas: ${questions.length}`;
+            } else {
+                outputTextArea.value = "";
+                countStats.textContent = "Preguntas encontradas: 0. Revisa el texto de entrada.";
+            }
+        }
+
+        extractBtn.onclick = doExtraction;
+
+        copyBtn.onclick = () => {
+            if (!outputTextArea.value) return;
+            outputTextArea.select();
+            document.execCommand('copy');
+            
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = "¡Copiado al Portapapeles!";
+            setTimeout(() => { copyBtn.textContent = originalText; }, 2000);
+        };
+    </script>
+</body>
+</html>
