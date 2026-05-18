@@ -193,6 +193,10 @@
         let mainImgObj = null;
         let animationId;
 
+        // Reloj sintético para renderizado offline (null = usa Date.now() real)
+        let _animTime = null;
+        function getAnimTime() { return _animTime !== null ? _animTime : Date.now(); }
+
         function updateRes() {
             const orientation = document.getElementById('orientation').value;
             if(orientation === 'cuadrado') { canvas.width = 1080; canvas.height = 1080; }
@@ -244,7 +248,9 @@
 
                 // Opciones
                 const bStartY = iy + ih + 80 * s;
-                options.forEach((opt, i) => drawCapsule(opt, 80 * s, bStartY + (i * 200 * s), canvas.width - 160 * s, 160 * s, progress, animType, s));
+                const capsW_v = canvas.width - 160 * s, capsH_v = 160 * s;
+                const unifiedFs_v = calcUnifiedFontSize(options, capsW_v, capsH_v, s);
+                options.forEach((opt, i) => drawCapsule(opt, 80 * s, bStartY + (i * 200 * s), capsW_v, capsH_v, progress, animType, s, unifiedFs_v));
             } else if (orientation === 'horizontal') {
                 ctx.fillStyle = "#ffffff"; ctx.font = `bold ${60 * s}px Inter, Arial`;
                 ctx.textAlign = "left"; ctx.fillText(title, 80 * s, 100 * s);
@@ -255,18 +261,22 @@
                 const bx = 950 * s;
                 const totalH = options.length * 200 * s;
                 const bStartY = iy + (ih - totalH) / 2;
-                options.forEach((opt, i) => drawCapsule(opt, bx, bStartY + (i * 200 * s), canvas.width - bx - 80 * s, 160 * s, progress, animType, s));
+                const capsW_h = canvas.width - bx - 80 * s, capsH_h = 160 * s;
+                const unifiedFs_h = calcUnifiedFontSize(options, capsW_h, capsH_h, s);
+                options.forEach((opt, i) => drawCapsule(opt, bx, bStartY + (i * 200 * s), capsW_h, capsH_h, progress, animType, s, unifiedFs_h));
             } else {
                 const totalH = options.length * 220 * s;
                 const bStartY = (canvas.height - totalH) / 2;
-                options.forEach((opt, i) => drawCapsule(opt, 100 * s, bStartY + (i * 220 * s), canvas.width - 200 * s, 180 * s, progress, animType, s));
+                const capsW_sq = canvas.width - 200 * s, capsH_sq = 180 * s;
+                const unifiedFs_sq = calcUnifiedFontSize(options, capsW_sq, capsH_sq, s);
+                options.forEach((opt, i) => drawCapsule(opt, 100 * s, bStartY + (i * 220 * s), capsW_sq, capsH_sq, progress, animType, s, unifiedFs_sq));
             }
         }
 
         function drawMainImage(x, y, w, h, progress, animType, s) {
             let offY = 0, offX = 0, scale = 1;
             if (progress < 1) {
-                const t = Date.now() / 400;
+                const t = getAnimTime() / 400;
                 if(animType === 'float') offY = Math.sin(t) * (20 * s);
                 if(animType === 'pulse') scale = 1 + Math.sin(t) * 0.02;
                 if(animType === 'slide') offX = Math.cos(t) * (30 * s);
@@ -288,10 +298,81 @@
             ctx.restore();
         }
 
-        function drawCapsule(opt, x, y, w, h, progress, animType, s) {
+        /**
+         * Pre-calculates the minimum fontSize shared across all options
+         * so every capsule uses the same text size (visual consistency).
+         */
+        function calcUnifiedFontSize(options, capsW, capsH, s) {
+            let minFs = Infinity;
+            const sliderRatio = document.getElementById('optFontSize').value / 100;
+            const MIN_FONT = Math.max(12, 12 * s);
+            for (const opt of options) {
+                // Approximate cx/r geometry (mirrors drawCapsule)
+                const approxBadgeX = 85 * s;  // cx relative to capsule x
+                const approxR = capsH / 2.1;
+                const textMaxW = capsW - (approxBadgeX - 0 + approxR + 60 * s);
+                const paddingV = capsH * 0.12;
+                const textMaxH = capsH - paddingV * 2;
+                const base = capsH * sliderRatio;
+                const { fontSize } = fitText(ctx, opt.t, textMaxW, textMaxH, base, MIN_FONT);
+                if (fontSize < minFs) minFs = fontSize;
+            }
+            return minFs === Infinity ? (capsH * sliderRatio) : minFs;
+        }
+
+        /**
+         * Wraps text into lines fitting maxWidth, returns array of line strings.
+         */
+        function wrapText(ctx, text, maxWidth) {
+            const words = text.split(' ');
+            const lines = [];
+            let current = '';
+            for (const word of words) {
+                const test = current ? current + ' ' + word : word;
+                if (ctx.measureText(test).width <= maxWidth) {
+                    current = test;
+                } else {
+                    if (current) lines.push(current);
+                    // If a single word is too wide, it still goes on its own line
+                    current = word;
+                }
+            }
+            if (current) lines.push(current);
+            return lines;
+        }
+
+        /**
+         * Two-phase smart text fit inside a capsule text area.
+         * Phase 1 – wrap lines to fill vertical space at original font size.
+         * Phase 2 – shrink font-size only when wrapped text still overflows height.
+         * Returns { lines, fontSize }.
+         */
+        function fitText(ctx, text, maxW, maxH, baseFontSize, minFontSize) {
+            let fontSize = baseFontSize;
+            const lineHeight = () => fontSize * 1.25;
+
+            // Phase 1: try wrapping at current font size
+            ctx.font = `bold ${fontSize}px Inter, Arial`;
+            let lines = wrapText(ctx, text, maxW);
+            let totalH = lines.length * lineHeight();
+
+            // If it fits, great – return as is
+            if (totalH <= maxH) return { lines, fontSize };
+
+            // Phase 2: reduce font-size until it fits, down to minFontSize
+            while (totalH > maxH && fontSize > minFontSize) {
+                fontSize = Math.max(fontSize - 1, minFontSize);
+                ctx.font = `bold ${fontSize}px Inter, Arial`;
+                lines = wrapText(ctx, text, maxW);
+                totalH = lines.length * lineHeight();
+            }
+            return { lines, fontSize };
+        }
+
+        function drawCapsule(opt, x, y, w, h, progress, animType, s, overrideFontSize) {
             let offY = 0, offX = 0, scale = 1;
             if (progress < 1) {
-                const t = Date.now() / 400 + opt.l.charCodeAt(0);
+                const t = getAnimTime() / 400 + opt.l.charCodeAt(0);
                 if(animType === 'float') offY = Math.sin(t) * (15 * s);
                 if(animType === 'pulse') scale = 1 + Math.sin(t) * 0.015;
                 if(animType === 'slide') offX = Math.cos(t) * (25 * s);
@@ -333,19 +414,47 @@
             }
 
             
-            // Texto con ajuste dinámico y manual
-            const maxW = w - (cx - x + r + 60 * s);
-            let baseSize = (h * (document.getElementById('optFontSize').value / 100));
-            ctx.font = `bold ${baseSize}px Inter, Arial`;
-            
-            while (ctx.measureText(opt.t).width > maxW && baseSize > 10) {
-                baseSize -= 2;
-                ctx.font = `bold ${baseSize}px Inter, Arial`;
+            // --- Two-phase smart text fit ---
+            const textX    = cx + r + 30 * s;           // left edge of text area
+            const textMaxW = w - (cx - x + r + 60 * s); // available width
+            const paddingV = h * 0.12;                  // vertical padding inside capsule
+            const textMaxH = h - paddingV * 2;          // available height
+            const MIN_FONT = Math.max(12, 12 * s);      // readable floor
+
+            let lines, fontSize;
+            if (overrideFontSize !== undefined) {
+                // Unified size supplied – wrap at that size first
+                fontSize = overrideFontSize;
+                ctx.font = `bold ${fontSize}px Inter, Arial`;
+                lines = wrapText(ctx, opt.t, textMaxW);
+                // Safety check: if wrapped text still overflows height, shrink (Phase 2)
+                let totalHCheck = lines.length * fontSize * 1.25;
+                while (totalHCheck > textMaxH && fontSize > MIN_FONT) {
+                    fontSize = Math.max(fontSize - 1, MIN_FONT);
+                    ctx.font = `bold ${fontSize}px Inter, Arial`;
+                    lines = wrapText(ctx, opt.t, textMaxW);
+                    totalHCheck = lines.length * fontSize * 1.25;
+                }
+            } else {
+                // No override: run the full two-phase fit independently
+                const baseFontSize = h * (document.getElementById('optFontSize').value / 100);
+                ctx.font = `bold ${baseFontSize}px Inter, Arial`;
+                ({ lines, fontSize } = fitText(ctx, opt.t, textMaxW, textMaxH, baseFontSize, MIN_FONT));
             }
+
+            const lineH = fontSize * 1.25;
+            const totalTextH = lines.length * lineH;
 
             ctx.fillStyle = (progress >= 1 && !opt.isCorrect) ? "#94a3b8" : "#333333";
             ctx.textAlign = "left";
-            ctx.fillText(opt.t, cx + r + 30 * s, cy);
+            ctx.textBaseline = "middle";
+            ctx.font = `bold ${fontSize}px Inter, Arial`;
+
+            // Center block vertically inside capsule
+            const blockStartY = cy - totalTextH / 2 + lineH / 2;
+            lines.forEach((line, idx) => {
+                ctx.fillText(line, textX, blockStartY + idx * lineH);
+            });
 
 
             ctx.restore();
@@ -363,22 +472,127 @@
             animationId = requestAnimationFrame(loop);
         }
 
-        document.getElementById('previewBtn').onclick = () => { cancelAnimationFrame(animationId); play(parseFloat(document.getElementById('duration').value)); };
+        // Export loop usa setTimeout en lugar de rAF para que NO se pause al cambiar de pestaña.
+        let exportTimeoutId = null;
+        function playForExport(durationSec, onEnd) {
+            cancelAnimationFrame(animationId); // detener preview si estaba activo
+            if (exportTimeoutId) clearTimeout(exportTimeoutId);
+
+            const start = Date.now();
+            const dur = durationSec * 1000;
+            const revealTime = 3000;
+            const FRAME_MS = 1000 / 60; // ~16.67 ms → 60 fps
+
+            function loop() {
+                const elapsed = Date.now() - start;
+                if (elapsed < dur) {
+                    draw(elapsed / dur);
+                    exportTimeoutId = setTimeout(loop, FRAME_MS);
+                } else {
+                    draw(1);
+                    if (elapsed - dur < revealTime) {
+                        exportTimeoutId = setTimeout(loop, FRAME_MS);
+                    } else {
+                        exportTimeoutId = null;
+                        if (onEnd) onEnd();
+                    }
+                }
+            }
+            loop(); // primera llamada sin retraso para capturar el frame 0 inmediatamente
+        }
+
+        document.getElementById('previewBtn').onclick = () => {
+            if (exportTimeoutId) { clearTimeout(exportTimeoutId); exportTimeoutId = null; }
+            cancelAnimationFrame(animationId);
+            play(parseFloat(document.getElementById('duration').value));
+        };
 
         document.getElementById('renderBtn').onclick = async () => {
-            const dur = parseFloat(document.getElementById('duration').value);
-            const stream = canvas.captureStream(60);
-            const rec = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 15000000 });
-            const chunks = [];
-            rec.ondataavailable = e => chunks.push(e.data);
-            rec.onstop = () => {
-                const blob = new Blob(chunks, { type: 'video/webm' });
-                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-                a.download = `trivia_video_${Date.now()}.webm`; a.click();
-                document.getElementById('renderBtn').disabled = false; document.getElementById('status').style.display = 'none';
-            };
-            document.getElementById('renderBtn').disabled = true; document.getElementById('status').style.display = 'block';
-            rec.start(); play(dur, () => rec.stop());
+            const statusEl = document.getElementById('status');
+            const renderBtn = document.getElementById('renderBtn');
+
+            // --- Exportación instantánea con WebCodecs ---
+            if (!window.VideoEncoder) {
+                alert('Tu navegador no soporta exportación rápida.\nUsa Chrome 94+ o Edge 94+.');
+                return;
+            }
+
+            const dur      = parseFloat(document.getElementById('duration').value);
+            const revealSec = 3;
+            const totalSec  = dur + revealSec;
+            const FPS       = 60;
+            const totalFrames = Math.ceil(totalSec * FPS);
+            const W = canvas.width, H = canvas.height;
+
+            // Detener animación en curso
+            cancelAnimationFrame(animationId);
+            if (exportTimeoutId) { clearTimeout(exportTimeoutId); exportTimeoutId = null; }
+
+            renderBtn.disabled = true;
+            statusEl.textContent = '⚡ GENERANDO VIDEO...';
+            statusEl.style.display = 'block';
+
+            try {
+                // Cargar muxer dinámicamente (no requiere instalación)
+                const { Muxer, ArrayBufferTarget } =
+                    await import('https://cdn.jsdelivr.net/npm/webm-muxer@3/+esm');
+
+                const muxer = new Muxer({
+                    target: new ArrayBufferTarget(),
+                    video: { codec: 'V_VP9', width: W, height: H, frameRate: FPS },
+                    firstTimestampBehavior: 'offset'
+                });
+
+                const encoder = new VideoEncoder({
+                    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+                    error: (e) => { throw e; }
+                });
+                encoder.configure({
+                    codec: 'vp09.00.10.08',
+                    width: W, height: H,
+                    bitrate: 15_000_000,
+                    framerate: FPS
+                });
+
+                const FRAME_US = Math.round(1_000_000 / FPS); // duración de frame en microsegundos
+
+                for (let i = 0; i < totalFrames; i++) {
+                    const elapsedMs  = i * (1000 / FPS);
+                    const elapsedDur = elapsedMs / (dur * 1000); // 0..1 durante la animación
+
+                    _animTime = elapsedMs; // reloj sintético para las animaciones
+                    draw(elapsedDur < 1 ? elapsedDur : 1);
+
+                    const frame = new VideoFrame(canvas, { timestamp: i * FRAME_US });
+                    encoder.encode(frame, { keyFrame: i % (FPS * 2) === 0 });
+                    frame.close();
+
+                    // Ceder al navegador cada 30 frames para actualizar el porcentaje
+                    if (i % 30 === 0) {
+                        const pct = Math.round((i / totalFrames) * 100);
+                        statusEl.textContent = `⚡ GENERANDO: ${pct}%`;
+                        await new Promise(r => setTimeout(r, 0));
+                    }
+                }
+
+                statusEl.textContent = '⚡ CODIFICANDO...';
+                await encoder.flush();
+                muxer.finalize();
+
+                const blob = new Blob([muxer.target.buffer], { type: 'video/webm' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `trivia_video_${Date.now()}.webm`;
+                a.click();
+
+            } catch (err) {
+                console.error('Export error:', err);
+                alert('Error al exportar: ' + err.message);
+            } finally {
+                _animTime = null;
+                renderBtn.disabled = false;
+                statusEl.style.display = 'none';
+            }
         };
 
         document.getElementById('orientation').onchange = updateRes;
