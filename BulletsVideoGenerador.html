@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,13 +33,25 @@
             justify-content: flex-start;
             margin-bottom: 20px;
         }
+
         .back-btn {
-            display: inline-flex; align-items: center; padding: 8px 16px;
-            background: #334155; color: #f8fafc; text-decoration: none;
-            border-radius: 8px; font-size: 0.85rem; font-weight: 600;
-            transition: 0.2s; border: 1px solid #475569;
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            background: #334155;
+            color: #f8fafc;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: 0.2s;
+            border: 1px solid #475569;
         }
-        .back-btn:hover { background: #475569; transform: translateX(-3px); }
+
+        .back-btn:hover {
+            background: #475569;
+            transform: translateX(-3px);
+        }
 
         .container {
             display: grid;
@@ -71,41 +84,109 @@
             max-height: 80vh;
             height: auto;
             border-radius: 12px;
-            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
             background: #000;
         }
 
-        .control-group { margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px; }
-        label { display: block; font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 6px; }
-        
-        select, input[type="text"], input[type="number"], input[type="color"], input[type="file"] {
-            width: 100%; padding: 10px; background: #334155; border: 1px solid #475569; border-radius: 8px; color: white; box-sizing: border-box;
+        .control-group {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #94a3b8;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        select,
+        input[type="text"],
+        input[type="number"],
+        input[type="color"],
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            color: white;
+            box-sizing: border-box;
         }
 
         .option-card {
-            background: #242f42; padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #334155;
+            background: #242f42;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #334155;
         }
 
-        .option-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .option-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
 
         .correct-toggle {
-            display: flex; align-items: center; gap: 5px; font-size: 0.7rem; color: var(--success); cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.7rem;
+            color: var(--success);
+            cursor: pointer;
         }
 
         button {
-            width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; transition: 0.2s;
-            background: var(--primary); color: white;
+            width: 100%;
+            padding: 14px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: 0.2s;
+            background: var(--primary);
+            color: white;
         }
 
-        #renderBtn { background: var(--success); }
-        #renderBtn:disabled { background: #475569; opacity: 0.6; cursor: not-allowed; }
+        #renderBtn {
+            background: var(--success);
+        }
+
+        #renderBtn:disabled {
+            background: #475569;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
 
         .recording-status {
-            color: #fb7185; font-size: 0.85rem; margin-top: 15px; display: none; text-align: center; animation: pulse 1.5s infinite;
+            color: #fb7185;
+            font-size: 0.85rem;
+            margin-top: 15px;
+            display: none;
+            text-align: center;
+            animation: pulse 1.5s infinite;
         }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
     </style>
 </head>
+
 <body>
     <div class="back-nav"><a href="index.html" class="back-btn">← Volver al Menú Principal</a></div>
 
@@ -122,8 +203,12 @@
                 </select>
                 <div style="display: flex; gap: 10px; margin-top: 8px;">
                     <div>
-                        <label>Segundos</label>
-                        <input type="number" id="duration" value="5" min="2">
+                        <label>Animación (s)</label>
+                        <input type="number" id="duration" value="6" min="1">
+                    </div>
+                    <div>
+                        <label>Final (s)</label>
+                        <input type="number" id="revealDuration" value="2" min="1">
                     </div>
                     <div>
                         <label>Tipo</label>
@@ -147,20 +232,27 @@
             <div class="control-group">
                 <label>Opciones de Trivia</label>
                 <div class="option-card">
-                    <div class="option-header"><span>OPCIÓN A</span><label class="correct-toggle"><input type="checkbox" id="correctA"> ¿Correcta?</label></div>
-                    <div style="display: flex; gap: 8px;"><input type="text" id="textA" value="Opción Incorrecta"><input type="color" id="colorA" value="#22c55e" style="width:45px"></div>
+                    <div class="option-header"><span>OPCIÓN A</span><label class="correct-toggle"><input type="checkbox"
+                                id="correctA"> ¿Correcta?</label></div>
+                    <div style="display: flex; gap: 8px;"><input type="text" id="textA" value="Opción Incorrecta"><input
+                            type="color" id="colorA" value="#22c55e" style="width:45px"></div>
                 </div>
                 <div class="option-card">
-                    <div class="option-header"><span>OPCIÓN B</span><label class="correct-toggle"><input type="checkbox" id="correctB" checked> ¿Correcta?</label></div>
-                    <div style="display: flex; gap: 8px;"><input type="text" id="textB" value="Respuesta Correcta"><input type="color" id="colorB" value="#3b82f6" style="width:45px"></div>
+                    <div class="option-header"><span>OPCIÓN B</span><label class="correct-toggle"><input type="checkbox"
+                                id="correctB" checked> ¿Correcta?</label></div>
+                    <div style="display: flex; gap: 8px;"><input type="text" id="textB"
+                            value="Respuesta Correcta"><input type="color" id="colorB" value="#3b82f6"
+                            style="width:45px"></div>
                 </div>
                 <div class="option-card">
-                    <div class="option-header"><span>OPCIÓN C</span><label class="correct-toggle"><input type="checkbox" id="correctC"> ¿Correcta?</label></div>
-                    <div style="display: flex; gap: 8px;"><input type="text" id="textC" value="Otra Incorrecta"><input type="color" id="colorC" value="#ef4444" style="width:45px"></div>
+                    <div class="option-header"><span>OPCIÓN C</span><label class="correct-toggle"><input type="checkbox"
+                                id="correctC"> ¿Correcta?</label></div>
+                    <div style="display: flex; gap: 8px;"><input type="text" id="textC" value="Otra Incorrecta"><input
+                            type="color" id="colorC" value="#ef4444" style="width:45px"></div>
                 </div>
             </div>
 
-            
+
             <div class="control-group">
                 <label>Ajuste de Texto</label>
                 <div style="display: flex; flex-direction: column; gap: 5px;">
@@ -168,7 +260,7 @@
                     <input type="range" id="optFontSize" min="10" max="100" value="40">
                 </div>
             </div>
-<div class="control-group">
+            <div class="control-group">
                 <label>Escena</label>
                 <select id="bgMode">
                     <option value="solid">Fondo Sólido</option>
@@ -199,8 +291,8 @@
 
         function updateRes() {
             const orientation = document.getElementById('orientation').value;
-            if(orientation === 'cuadrado') { canvas.width = 1080; canvas.height = 1080; }
-            else if(orientation === 'horizontal') { canvas.width = 1920; canvas.height = 1080; }
+            if (orientation === 'cuadrado') { canvas.width = 1080; canvas.height = 1080; }
+            else if (orientation === 'horizontal') { canvas.width = 1920; canvas.height = 1080; }
             else { canvas.width = 1080; canvas.height = 1920; }
             draw(0);
         }
@@ -212,7 +304,7 @@
                 img.onload = () => { mainImgObj = img; draw(0); };
                 img.src = ev.target.result;
             };
-            if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+            if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
         };
 
         function draw(progress) {
@@ -228,9 +320,9 @@
             if (bgMode === 'solid') { ctx.fillStyle = bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
 
             const options = ['A', 'B', 'C'].map(l => ({
-                l, 
-                t: document.getElementById(`text${l}`).value, 
-                c: document.getElementById(`color${l}`).value, 
+                l,
+                t: document.getElementById(`text${l}`).value,
+                c: document.getElementById(`color${l}`).value,
                 isCorrect: document.getElementById(`correct${l}`).checked
             })).filter(o => o.t.trim() !== "");
 
@@ -240,10 +332,10 @@
             if (orientation === 'vertical') {
                 // Título
                 ctx.fillStyle = "#ffffff"; ctx.font = `bold ${70 * s}px Inter, Arial`;
-                ctx.textAlign = "center"; ctx.fillText(title, canvas.width/2, 120 * s);
+                ctx.textAlign = "center"; ctx.fillText(title, canvas.width / 2, 120 * s);
 
                 // Imagen Central
-                const iw = 920 * s, ih = 800 * s, ix = (canvas.width - iw)/2, iy = 200 * s;
+                const iw = 920 * s, ih = 800 * s, ix = (canvas.width - iw) / 2, iy = 200 * s;
                 drawMainImage(ix, iy, iw, ih, progress, animType, s);
 
                 // Opciones
@@ -277,23 +369,23 @@
             let offY = 0, offX = 0, scale = 1;
             if (progress < 1) {
                 const t = getAnimTime() / 400;
-                if(animType === 'float') offY = Math.sin(t) * (20 * s);
-                if(animType === 'pulse') scale = 1 + Math.sin(t) * 0.02;
-                if(animType === 'slide') offX = Math.cos(t) * (30 * s);
+                if (animType === 'float') offY = Math.sin(t) * (20 * s);
+                if (animType === 'pulse') scale = 1 + Math.sin(t) * 0.02;
+                if (animType === 'slide') offX = Math.cos(t) * (30 * s);
             }
 
             ctx.save();
-            ctx.translate(x + w/2 + offX, y + h/2 + offY);
+            ctx.translate(x + w / 2 + offX, y + h / 2 + offY);
             ctx.scale(scale, scale);
-            ctx.translate(-(x + w/2), -(y + h/2));
+            ctx.translate(-(x + w / 2), -(y + h / 2));
 
             ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 30 * s; ctx.shadowOffsetY = 15 * s;
             ctx.beginPath(); ctx.roundRect(x, y, w, h, 20 * s);
-            ctx.fillStyle = "#ffffff"; ctx.fill(); 
+            ctx.fillStyle = "#ffffff"; ctx.fill();
             ctx.clip();
-            if(mainImgObj) {
-                const sc = Math.max(w/mainImgObj.width, h/mainImgObj.height);
-                ctx.drawImage(mainImgObj, x + (w-mainImgObj.width*sc)/2, y + (h-mainImgObj.height*sc)/2, mainImgObj.width*sc, mainImgObj.height*sc);
+            if (mainImgObj) {
+                const sc = Math.max(w / mainImgObj.width, h / mainImgObj.height);
+                ctx.drawImage(mainImgObj, x + (w - mainImgObj.width * sc) / 2, y + (h - mainImgObj.height * sc) / 2, mainImgObj.width * sc, mainImgObj.height * sc);
             } else { ctx.fillStyle = "#334155"; ctx.fillRect(x, y, w, h); }
             ctx.restore();
         }
@@ -373,18 +465,18 @@
             let offY = 0, offX = 0, scale = 1;
             if (progress < 1) {
                 const t = getAnimTime() / 400 + opt.l.charCodeAt(0);
-                if(animType === 'float') offY = Math.sin(t) * (15 * s);
-                if(animType === 'pulse') scale = 1 + Math.sin(t) * 0.015;
-                if(animType === 'slide') offX = Math.cos(t) * (25 * s);
+                if (animType === 'float') offY = Math.sin(t) * (15 * s);
+                if (animType === 'pulse') scale = 1 + Math.sin(t) * 0.015;
+                if (animType === 'slide') offX = Math.cos(t) * (25 * s);
             }
 
             ctx.save();
-            ctx.translate(x + w/2 + offX, y + h/2 + offY);
+            ctx.translate(x + w / 2 + offX, y + h / 2 + offY);
             ctx.scale(scale, scale);
-            ctx.translate(-(x + w/2), -(y + h/2));
+            ctx.translate(-(x + w / 2), -(y + h / 2));
 
             // Cuerpo de la cápsula
-            ctx.beginPath(); ctx.roundRect(x + 50 * s, y, w - 50 * s, h, h/2);
+            ctx.beginPath(); ctx.roundRect(x + 50 * s, y, w - 50 * s, h, h / 2);
             if (progress >= 1 && !opt.isCorrect) {
                 ctx.fillStyle = "#334155"; // Gris sólido si es incorrecta
             } else {
@@ -395,11 +487,11 @@
             ctx.shadowColor = "transparent";
 
             // Badge
-            const cx = x + 85 * s, cy = y + h/2, r = h/2.1;
+            const cx = x + 85 * s, cy = y + h / 2, r = h / 2.1;
             ctx.beginPath(); ctx.arc(cx, cy, r + 5 * s, 0, Math.PI * 2);
             ctx.fillStyle = "#ffffff"; ctx.fill();
             ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-            
+
             if (progress >= 1 && opt.isCorrect) ctx.fillStyle = "#22c55e"; // Verde al final
             else if (progress >= 1 && !opt.isCorrect) ctx.fillStyle = "#64748b"; // Gris badge
             else ctx.fillStyle = opt.c;
@@ -413,9 +505,9 @@
                 ctx.font = `bold ${h * 0.5}px Inter, Arial`; ctx.fillText(opt.l, cx, cy);
             }
 
-            
+
             // --- Two-phase smart text fit ---
-            const textX    = cx + r + 30 * s;           // left edge of text area
+            const textX = cx + r + 30 * s;           // left edge of text area
             const textMaxW = w - (cx - x + r + 60 * s); // available width
             const paddingV = h * 0.12;                  // vertical padding inside capsule
             const textMaxH = h - paddingV * 2;          // available height
@@ -463,7 +555,7 @@
         function play(durationSec, onEnd) {
             const start = Date.now();
             const dur = durationSec * 1000;
-            const revealTime = 3000; // 3 segundos de resultado
+            const revealTime = parseFloat(document.getElementById('revealDuration').value) * 1000;
             function loop() {
                 const elapsed = Date.now() - start;
                 if (elapsed < dur) { draw(elapsed / dur); animationId = requestAnimationFrame(loop); }
@@ -480,7 +572,7 @@
 
             const start = Date.now();
             const dur = durationSec * 1000;
-            const revealTime = 3000;
+            const revealTime = parseFloat(document.getElementById('revealDuration').value) * 1000;
             const FRAME_MS = 1000 / 60; // ~16.67 ms → 60 fps
 
             function loop() {
@@ -517,10 +609,10 @@
                 return;
             }
 
-            const dur      = parseFloat(document.getElementById('duration').value);
-            const revealSec = 3;
-            const totalSec  = dur + revealSec;
-            const FPS       = 60;
+            const dur = parseFloat(document.getElementById('duration').value);
+            const revealSec = parseFloat(document.getElementById('revealDuration').value);
+            const totalSec = dur + revealSec;
+            const FPS = 60;
             const totalFrames = Math.ceil(totalSec * FPS);
             const W = canvas.width, H = canvas.height;
 
@@ -557,7 +649,7 @@
                 const FRAME_US = Math.round(1_000_000 / FPS); // duración de frame en microsegundos
 
                 for (let i = 0; i < totalFrames; i++) {
-                    const elapsedMs  = i * (1000 / FPS);
+                    const elapsedMs = i * (1000 / FPS);
                     const elapsedDur = elapsedMs / (dur * 1000); // 0..1 durante la animación
 
                     _animTime = elapsedMs; // reloj sintético para las animaciones
@@ -599,4 +691,5 @@
         window.onload = updateRes;
     </script>
 </body>
+
 </html>
