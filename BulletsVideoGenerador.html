@@ -223,9 +223,19 @@
 
             <div id="slideControls">
                 <div class="control-group">
-                    <label>Título e Imagen</label>
+                    <label>Título e Imagen / Video</label>
                     <input type="text" id="slideTitle" value="¿CUÁL ES CORRECTA?" style="margin-bottom:8px">
+                    <div style="display:flex;gap:8px;margin-bottom:8px;">
+                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;text-transform:none;font-size:0.8rem;color:#94a3b8;">
+                            <input type="radio" name="mediaType" value="image" id="mediaTypeImage" checked> Imagen
+                        </label>
+                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;text-transform:none;font-size:0.8rem;color:#94a3b8;">
+                            <input type="radio" name="mediaType" value="video" id="mediaTypeVideo"> Video MP4
+                        </label>
+                    </div>
                     <input type="file" id="mainImage" accept="image/*">
+                    <input type="file" id="mainVideo" accept="video/mp4,video/*" style="display:none;margin-top:4px;">
+                    <div id="videoInfo" style="display:none;font-size:0.72rem;color:#22d3ee;margin-top:6px;">⏱ Video + Audio se exportarán juntos. Si el video es más corto que la animación, el audio se repetirá.</div>
                 </div>
             </div>
 
@@ -282,12 +292,28 @@
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        let mainImgObj = null;
+        let mainImgObj  = null;
+        let mainVideoEl  = null;   // elemento <video> para MP4
+        let mainVideoFile = null;  // File original del MP4 (para extraer audio en export)
         let animationId;
 
         // Reloj sintético para renderizado offline (null = usa Date.now() real)
         let _animTime = null;
         function getAnimTime() { return _animTime !== null ? _animTime : Date.now(); }
+
+        // ── Selector de tipo de media ──────────────────────────────────────
+        document.querySelectorAll('input[name="mediaType"]').forEach(r => {
+            r.addEventListener('change', () => {
+                const isVideo = document.getElementById('mediaTypeVideo').checked;
+                document.getElementById('mainImage').style.display  = isVideo ? 'none' : '';
+                document.getElementById('mainVideo').style.display  = isVideo ? ''     : 'none';
+                document.getElementById('videoInfo').style.display  = isVideo ? 'block': 'none';
+                // Limpiar el medio no activo
+                if (isVideo) { mainImgObj = null; }
+                else { if (mainVideoEl) { mainVideoEl.pause(); mainVideoEl.src = ''; } mainVideoEl = null; }
+                draw(0);
+            });
+        });
 
         function updateRes() {
             const orientation = document.getElementById('orientation').value;
@@ -305,6 +331,28 @@
                 img.src = ev.target.result;
             };
             if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+        };
+
+        document.getElementById('mainVideo').onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            mainVideoFile = file; // guardar referencia al File para extraer audio al exportar
+            // Revocar URL anterior si existe
+            if (mainVideoEl && mainVideoEl._objectURL) URL.revokeObjectURL(mainVideoEl._objectURL);
+            const vid = document.createElement('video');
+            vid.crossOrigin = 'anonymous';
+            vid.muted = true;         // el canvas no captura audio; usamos AudioContext para eso
+            vid.loop  = true;
+            vid.playsInline = true;
+            const url = URL.createObjectURL(file);
+            vid._objectURL = url;
+            vid.src = url;
+            vid.onloadedmetadata = () => {
+                mainVideoEl = vid;
+                // Mostrar el primer frame
+                vid.currentTime = 0;
+                vid.onseeked = () => { draw(0); vid.onseeked = null; };
+            };
         };
 
         function draw(progress) {
@@ -383,10 +431,31 @@
             ctx.beginPath(); ctx.roundRect(x, y, w, h, 20 * s);
             ctx.fillStyle = "#ffffff"; ctx.fill();
             ctx.clip();
-            if (mainImgObj) {
-                const sc = Math.max(w / mainImgObj.width, h / mainImgObj.height);
-                ctx.drawImage(mainImgObj, x + (w - mainImgObj.width * sc) / 2, y + (h - mainImgObj.height * sc) / 2, mainImgObj.width * sc, mainImgObj.height * sc);
-            } else { ctx.fillStyle = "#334155"; ctx.fillRect(x, y, w, h); }
+
+            // ── Dibujar medio: imagen estática o video MP4 ──────────────
+            const mediaSrc = mainVideoEl && document.getElementById('mediaTypeVideo').checked
+                ? mainVideoEl
+                : mainImgObj;
+
+            if (mediaSrc) {
+                const mw = mediaSrc.videoWidth  || mediaSrc.naturalWidth  || mediaSrc.width;
+                const mh = mediaSrc.videoHeight || mediaSrc.naturalHeight || mediaSrc.height;
+                if (mw && mh) {
+                    const sc = Math.max(w / mw, h / mh);
+                    ctx.drawImage(mediaSrc,
+                        x + (w - mw * sc) / 2, y + (h - mh * sc) / 2,
+                        mw * sc, mh * sc);
+                }
+            } else {
+                // Placeholder cuando no hay medio cargado
+                ctx.fillStyle = "#334155";
+                ctx.fillRect(x, y, w, h);
+                ctx.fillStyle = "#64748b";
+                ctx.font = `bold ${30 * s}px Inter, Arial`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("Sin imagen / video", x + w / 2, y + h / 2);
+            }
             ctx.restore();
         }
 
@@ -556,10 +625,22 @@
             const start = Date.now();
             const dur = durationSec * 1000;
             const revealTime = parseFloat(document.getElementById('revealDuration').value) * 1000;
+            // Reproducir video si está cargado
+            if (mainVideoEl && document.getElementById('mediaTypeVideo').checked) {
+                mainVideoEl.currentTime = 0;
+                mainVideoEl.play().catch(() => {});
+            }
             function loop() {
                 const elapsed = Date.now() - start;
                 if (elapsed < dur) { draw(elapsed / dur); animationId = requestAnimationFrame(loop); }
-                else { draw(1); if (elapsed - dur < revealTime) animationId = requestAnimationFrame(loop); else if (onEnd) onEnd(); }
+                else {
+                    draw(1);
+                    if (elapsed - dur < revealTime) animationId = requestAnimationFrame(loop);
+                    else {
+                        if (mainVideoEl) mainVideoEl.pause();
+                        if (onEnd) onEnd();
+                    }
+                }
             }
             animationId = requestAnimationFrame(loop);
         }
@@ -629,12 +710,40 @@
                 const { Muxer, ArrayBufferTarget } =
                     await import('https://cdn.jsdelivr.net/npm/webm-muxer@3/+esm');
 
-                const muxer = new Muxer({
+                // ── 1. Decodificar audio del MP4 (si aplica) ─────────────────────────
+                const useVideo = mainVideoEl && document.getElementById('mediaTypeVideo').checked;
+                let audioBuffer = null;   // AudioBuffer con PCM decodificado
+                let AUDIO_SR = 48000;     // sample rate
+                let AUDIO_CH = 2;         // channels
+
+                if (useVideo && mainVideoFile && window.AudioEncoder) {
+                    try {
+                        statusEl.textContent = '🎵 DECODIFICANDO AUDIO...';
+                        await new Promise(r => setTimeout(r, 0)); // actualizar UI
+                        const fileBuffer = await mainVideoFile.arrayBuffer();
+                        const tmpCtx = new AudioContext();
+                        audioBuffer = await tmpCtx.decodeAudioData(fileBuffer);
+                        await tmpCtx.close();
+                        AUDIO_SR = Math.min(audioBuffer.sampleRate, 48000);
+                        AUDIO_CH = Math.min(audioBuffer.numberOfChannels, 2);
+                    } catch (audioErr) {
+                        console.warn('Sin pista de audio o no se pudo decodificar:', audioErr);
+                        audioBuffer = null; // continuar sin audio
+                    }
+                }
+
+                // ── 2. Configurar Muxer (con o sin audio) ────────────────────────────
+                const muxerConfig = {
                     target: new ArrayBufferTarget(),
                     video: { codec: 'V_VP9', width: W, height: H, frameRate: FPS },
                     firstTimestampBehavior: 'offset'
-                });
+                };
+                if (audioBuffer) {
+                    muxerConfig.audio = { codec: 'A_OPUS', sampleRate: AUDIO_SR, numberOfChannels: AUDIO_CH };
+                }
+                const muxer = new Muxer(muxerConfig);
 
+                // ── 3. Configurar VideoEncoder ────────────────────────────────────────
                 const encoder = new VideoEncoder({
                     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
                     error: (e) => { throw e; }
@@ -646,28 +755,102 @@
                     framerate: FPS
                 });
 
-                const FRAME_US = Math.round(1_000_000 / FPS); // duración de frame en microsegundos
+                // ── 4. Configurar AudioEncoder (si hay audio) ─────────────────────────
+                let audioEnc = null;
+                if (audioBuffer) {
+                    audioEnc = new AudioEncoder({
+                        output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+                        error: (e) => { throw e; }
+                    });
+                    audioEnc.configure({
+                        codec: 'opus',
+                        sampleRate: AUDIO_SR,
+                        numberOfChannels: AUDIO_CH,
+                        bitrate: 192_000
+                    });
+                }
 
+                const FRAME_US = Math.round(1_000_000 / FPS);
+
+                // Pausar video y preparar seek frame a frame
+                if (useVideo) { mainVideoEl.pause(); mainVideoEl.currentTime = 0; }
+
+                // ── 5. Loop de frames de video ────────────────────────────────────────
                 for (let i = 0; i < totalFrames; i++) {
                     const elapsedMs = i * (1000 / FPS);
-                    const elapsedDur = elapsedMs / (dur * 1000); // 0..1 durante la animación
+                    const elapsedDur = elapsedMs / (dur * 1000);
 
-                    _animTime = elapsedMs; // reloj sintético para las animaciones
+                    _animTime = elapsedMs;
+
+                    if (useVideo && mainVideoEl.duration > 0) {
+                        const targetT = (elapsedMs / 1000) % mainVideoEl.duration;
+                        if (Math.abs(mainVideoEl.currentTime - targetT) > 0.02) {
+                            mainVideoEl.currentTime = targetT;
+                            await new Promise(res => {
+                                mainVideoEl.onseeked = () => { mainVideoEl.onseeked = null; res(); };
+                                setTimeout(res, 100);
+                            });
+                        }
+                    }
+
                     draw(elapsedDur < 1 ? elapsedDur : 1);
 
                     const frame = new VideoFrame(canvas, { timestamp: i * FRAME_US });
                     encoder.encode(frame, { keyFrame: i % (FPS * 2) === 0 });
                     frame.close();
 
-                    // Ceder al navegador cada 30 frames para actualizar el porcentaje
                     if (i % 30 === 0) {
                         const pct = Math.round((i / totalFrames) * 100);
-                        statusEl.textContent = `⚡ GENERANDO: ${pct}%`;
+                        statusEl.textContent = `⚡ VIDEO: ${pct}%`;
                         await new Promise(r => setTimeout(r, 0));
                     }
                 }
 
-                statusEl.textContent = '⚡ CODIFICANDO...';
+                // ── 6. Codificar audio en chunks PCM ────────────────────────────────
+                if (audioEnc && audioBuffer) {
+                    statusEl.textContent = '🎵 CODIFICANDO AUDIO...';
+                    await new Promise(r => setTimeout(r, 0));
+
+                    const CHUNK_FRAMES = 1024; // muestras por chunk
+                    const totalAudioFrames = Math.ceil(totalSec * AUDIO_SR);
+                    const audioDurationFrames = audioBuffer.length; // frames disponibles en el archivo
+
+                    // Extraer datos PCM de cada canal
+                    const channelData = [];
+                    for (let c = 0; c < AUDIO_CH; c++) {
+                        channelData.push(audioBuffer.getChannelData(c));
+                    }
+
+                    for (let offset = 0; offset < totalAudioFrames; offset += CHUNK_FRAMES) {
+                        const chunkFrames = Math.min(CHUNK_FRAMES, totalAudioFrames - offset);
+                        const timestampUs = Math.round(offset / AUDIO_SR * 1_000_000);
+
+                        // Construir buffer planar (un plano por canal)
+                        const planar = new Float32Array(chunkFrames * AUDIO_CH);
+                        for (let c = 0; c < AUDIO_CH; c++) {
+                            for (let s = 0; s < chunkFrames; s++) {
+                                // Loop del audio si el video es más corto que la exportación
+                                const srcIdx = (offset + s) % audioDurationFrames;
+                                planar[c * chunkFrames + s] = channelData[c][srcIdx];
+                            }
+                        }
+
+                        const audioData = new AudioData({
+                            format: 'f32-planar',
+                            sampleRate: AUDIO_SR,
+                            numberOfFrames: chunkFrames,
+                            numberOfChannels: AUDIO_CH,
+                            timestamp: timestampUs,
+                            data: planar
+                        });
+                        audioEnc.encode(audioData);
+                        audioData.close();
+                    }
+                    await audioEnc.flush();
+                }
+
+                // ── 7. Finalizar y descargar ──────────────────────────────────────────
+                statusEl.textContent = '⚡ FINALIZANDO...';
                 await encoder.flush();
                 muxer.finalize();
 
