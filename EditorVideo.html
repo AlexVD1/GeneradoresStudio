@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Video – GeneradorStudio</title>
+    <meta name="description" content="Editor de video web con perspectiva, chroma key y exportación WebM. Módulo de GeneradorStudio.">
+
+    <!-- ─────────────────────────────────────────────────────────────────────
+         Three.js r160 – importamos desde CDN oficial (ES Module build)
+         Usamos un importmap para que el código pueda escribir:
+           import * as THREE from 'three'
+         sin necesidad de un bundler.
+    ───────────────────────────────────────────────────────────────────── -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+    }
+    </script>
+
+    <style>
+        /* ═══════════════════════════════════════════════════════
+           TOKENS GLOBALES – paleta coherente con GeneradorStudio
+        ═══════════════════════════════════════════════════════ */
+        :root {
+            --bg:          #0f172a;
+            --panel:       #1e293b;
+            --border:      #334155;
+            --accent:      #6366f1;
+            --accent2:     #22d3ee;
+            --danger:      #ef4444;
+            --text:        #f8fafc;
+            --text-muted:  #94a3b8;
+            --pin-color:   #ff3e3e;
+            --radius-ui:   12px;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           RESET & TIPOGRAFÍA
+        ═══════════════════════════════════════════════════════ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 24px 16px 48px;
+            user-select: none; /* evita selección accidental al arrastrar pines */
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           ENCABEZADO
+        ═══════════════════════════════════════════════════════ */
+        .header {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #818cf8, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color .2s;
+        }
+        .header a:hover { color: var(--text); }
+
+        /* ═══════════════════════════════════════════════════════
+           ZONA DE CARGA (estado inicial)
+        ═══════════════════════════════════════════════════════ */
+        #drop-zone {
+            width: 100%;
+            max-width: 640px;
+            aspect-ratio: 16 / 9;
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-ui);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: border-color .3s, background .3s;
+            color: var(--text-muted);
+            background: rgba(99,102,241,.04);
+            margin-bottom: 20px;
+        }
+        #drop-zone:hover { border-color: var(--accent); background: rgba(99,102,241,.1); }
+        #drop-zone .icon { font-size: 3rem; }
+        #drop-zone p { font-size: 0.9rem; }
+
+        /* ═══════════════════════════════════════════════════════
+           CONTENEDOR DEL LIENZO + PINES
+           position:relative es CRÍTICO para que los pines
+           con position:absolute se posicionen dentro de él.
+        ═══════════════════════════════════════════════════════ */
+        #editor-wrapper {
+            display: none; /* se muestra al cargar video */
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+        }
+
+        #editor-container {
+            position: relative;   /* ← ancla de los pines */
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            overflow: visible;    /* los pines pueden salir un poco */
+            box-shadow: 0 20px 40px rgba(0,0,0,.6);
+            /* El tamaño se asigna dinámicamente desde JS */
+        }
+
+        /* El canvas de Three.js llena exactamente el contenedor */
+        #editor-container canvas {
+            display: block;
+            border-radius: 6px;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           PINES – puntos de control de perspectiva
+        ═══════════════════════════════════════════════════════ */
+        .corner-pin {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: var(--pin-color);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            cursor: move;
+            /* transform:translate(-50%,-50%) centra el círculo
+               exactamente en las coordenadas (left, top)        */
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            box-shadow: 0 0 0 3px rgba(255,62,62,.35), 0 0 12px rgba(255,62,62,.6);
+            transition: transform .15s, box-shadow .15s;
+        }
+        .corner-pin:hover, .corner-pin.dragging {
+            transform: translate(-50%, -50%) scale(1.35);
+            box-shadow: 0 0 0 5px rgba(255,62,62,.5), 0 0 20px rgba(255,62,62,.8);
+        }
+
+        /* Líneas SVG entre pines (cuadrilátero de referencia) */
+        #pin-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            overflow: visible;
+        }
+        #pin-overlay polyline {
+            fill: none;
+            stroke: rgba(255,255,255,.25);
+            stroke-width: 1.5;
+            stroke-dasharray: 6 4;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           PANEL DE CONTROLES
+        ═══════════════════════════════════════════════════════ */
+        .controls-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 760px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-ui);
+            padding: 14px 18px;
+        }
+
+        /* Sección dentro del panel */
+        .ctrl-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 140px;
+        }
+        .ctrl-group label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        /* Inputs de rango */
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        /* Color picker de chroma key */
+        input[type="color"] {
+            border: none;
+            background: none;
+            width: 36px;
+            height: 28px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .chroma-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Separador vertical entre grupos */
+        .ctrl-sep {
+            width: 1px;
+            height: 48px;
+            background: var(--border);
+            align-self: center;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           BOTONES DE ACCIÓN
+        ═══════════════════════════════════════════════════════ */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 22px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform .15s, box-shadow .15s, background .2s;
+        }
+        .btn:active { transform: scale(.97); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #818cf8);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(99,102,241,.4);
+        }
+        .btn-primary:hover { box-shadow: 0 6px 20px rgba(99,102,241,.6); }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #f97316);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(239,68,68,.4);
+        }
+        .btn-danger:hover { box-shadow: 0 6px 20px rgba(239,68,68,.6); }
+
+        .btn-ghost {
+            background: var(--panel);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+
+        /* ═══════════════════════════════════════════════════════
+           BARRA DE ESTADO / LOG
+        ═══════════════════════════════════════════════════════ */
+        #status-bar {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            text-align: center;
+            min-height: 1.2em;
+            letter-spacing: .03em;
+        }
+        #status-bar.recording { color: #f97316; }
+        #status-bar.ok { color: #4ade80; }
+
+        /* ═══════════════════════════════════════════════════════
+           OCULTAR input file real
+        ═══════════════════════════════════════════════════════ */
+        #video-uploader { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- ──────────── ENCABEZADO ──────────── -->
+    <header class="header">
+        <h1>🎬 Editor de Video</h1>
+        <a href="index.html">← Volver al Hub</a>
+    </header>
+
+    <!-- ──────────── ZONA DRAG & DROP inicial ──────────── -->
+    <div id="drop-zone" role="button" aria-label="Área para cargar video">
+        <span class="icon">🎥</span>
+        <strong>Haz clic o arrastra un video aquí</strong>
+        <p>Soporta MP4, WebM, MOV • Horizontal y Vertical</p>
+    </div>
+
+    <!-- ──────────── EDITOR (oculto hasta cargar video) ──────────── -->
+    <div id="editor-wrapper">
+
+        <!-- Contenedor relativo: canvas + pines + overlay SVG -->
+        <div id="editor-container">
+
+            <!-- El canvas de Three.js se insertará aquí dinámicamente -->
+
+            <!-- SVG para las líneas guía entre pines -->
+            <svg id="pin-overlay" xmlns="http://www.w3.org/2000/svg">
+                <polyline id="pin-outline" points="" />
+            </svg>
+
+            <!-- Los 4 pines de control de perspectiva
+                 data-index: 0=TL, 1=TR, 2=BR, 3=BL (sentido horario)
+                 Este orden es importante para la homografía.
+            -->
+            <div class="corner-pin" id="pin-tl" data-index="0" title="Esquina superior-izquierda"></div>
+            <div class="corner-pin" id="pin-tr" data-index="1" title="Esquina superior-derecha"></div>
+            <div class="corner-pin" id="pin-br" data-index="2" title="Esquina inferior-derecha"></div>
+            <div class="corner-pin" id="pin-bl" data-index="3" title="Esquina inferior-izquierda"></div>
+        </div>
+
+        <!-- ──────────── CONTROLES ──────────── -->
+        <div class="controls-panel">
+
+            <!-- Chroma Key -->
+            <div class="ctrl-group">
+                <label>Color Chroma</label>
+                <div class="chroma-row">
+                    <input type="color" id="chroma-color" value="#00ff00" title="Color a eliminar">
+                    <span id="chroma-hex" style="font-size:.75rem;color:var(--text-muted)">#00ff00</span>
+                </div>
+            </div>
+
+            <div class="ctrl-group">
+                <label>Tolerancia <span id="val-tol">0.35</span></label>
+                <input type="range" id="chroma-tol" min="0" max="1" step="0.01" value="0.35">
+            </div>
+
+            <div class="ctrl-group">
+                <label>Suavizado <span id="val-smooth">0.08</span></label>
+                <input type="range" id="chroma-smooth" min="0" max="0.5" step="0.01" value="0.08">
+            </div>
+
+            <div class="ctrl-sep"></div>
+
+            <!-- Esquinas redondeadas -->
+            <div class="ctrl-group">
+                <label>Radio de esquinas <span id="val-radius">0.04</span></label>
+                <input type="range" id="corner-radius" min="0" max="0.25" step="0.005" value="0.04">
+            </div>
+
+            <div class="ctrl-sep"></div>
+
+            <!-- Color de fondo sólido -->
+            <div class="ctrl-group">
+                <label>Color de fondo</label>
+                <div class="chroma-row">
+                    <input type="color" id="bg-color" value="#000000" title="Color que reemplaza las zonas del chroma key">
+                    <span id="bg-hex" style="font-size:.75rem;color:var(--text-muted)">#000000</span>
+                </div>
+            </div>
+
+            <div class="ctrl-sep"></div>
+
+            <!-- Botones -->
+            <div class="action-buttons">
+                <button class="btn btn-ghost" id="btn-reset-pins" title="Restablecer pines a las esquinas">↺ Resetear</button>
+                <button class="btn btn-primary" id="btn-load" title="Cargar otro video">📂 Cargar</button>
+                <button class="btn btn-danger" id="btn-export" title="Grabar y descargar">⏺ Exportar</button>
+            </div>
+        </div>
+
+        <!-- Barra de estado -->
+        <div id="status-bar">Listo.</div>
+    </div>
+
+    <!-- Input file oculto -->
+    <input type="file" id="video-uploader" accept="video/*">
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SCRIPT PRINCIPAL – ES Module para poder usar importmap / Three.js
+    ══════════════════════════════════════════════════════════════════════ -->
+    <script type="module">
+    /*
+    ╔══════════════════════════════════════════════════════════════════════╗
+    ║           EDITOR DE VIDEO – GeneradorStudio                         ║
+    ║                                                                     ║
+    ║  ARQUITECTURA DEL PIPELINE (de atrás hacia adelante):               ║
+    ║                                                                     ║
+    ║  [<video> oculto] → Textura VideoTexture de Three.js                ║
+    ║       ↓                                                             ║
+    ║  [PlaneGeometry deformada con vértices homográficos]                ║
+    ║       ↓                                                             ║
+    ║  [Fragment Shader GLSL]                                             ║
+    ║       • Chroma Key (elimina verde/cualquier color)                  ║
+    ║       • Máscara de esquinas redondeadas                             ║
+    ║       ↓                                                             ║
+    ║  [WebGLRenderer → <canvas>]                                         ║
+    ║       ↓                                                             ║
+    ║  [MediaRecorder] → archivo .webm descargable                        ║
+    ╚══════════════════════════════════════════════════════════════════════╝
+    */
+
+    import * as THREE from 'three';
+
+    /* ──────────────────────────────────────────────────────────────────
+       REFERENCIAS DOM
+    ────────────────────────────────────────────────────────────────── */
+    const dropZone      = document.getElementById('drop-zone');
+    const editorWrapper = document.getElementById('editor-wrapper');
+    const container     = document.getElementById('editor-container');
+    const videoUploader = document.getElementById('video-uploader');
+    const statusBar     = document.getElementById('status-bar');
+
+    // Pines
+    const pinEls = [
+        document.getElementById('pin-tl'),  // índice 0
+        document.getElementById('pin-tr'),  // índice 1
+        document.getElementById('pin-br'),  // índice 2
+        document.getElementById('pin-bl'),  // índice 3
+    ];
+    const pinOutlineSVG = document.getElementById('pin-outline');
+
+    // Controles chroma & esquinas
+    const chromaColorInput  = document.getElementById('chroma-color');
+    const chromaHexLabel    = document.getElementById('chroma-hex');
+    const chromaTolInput    = document.getElementById('chroma-tol');
+    const chromaSmoothInput = document.getElementById('chroma-smooth');
+    const cornerRadiusInput = document.getElementById('corner-radius');
+
+    const valTol    = document.getElementById('val-tol');
+    const valSmooth = document.getElementById('val-smooth');
+    const valRadius = document.getElementById('val-radius');
+
+    /* ──────────────────────────────────────────────────────────────────
+       ESTADO GLOBAL DEL EDITOR
+    ────────────────────────────────────────────────────────────────── */
+
+    /** Dimensiones actuales del contenedor (en píxeles CSS) */
+    let cW = 0, cH = 0;
+
+    /**
+     * pinCoords[i] = { x, y }  en píxeles relativos al contenedor.
+     * Orden: 0=TL, 1=TR, 2=BR, 3=BL  (sentido horario).
+     */
+    let pinCoords = [
+        { x: 0,   y: 0 },
+        { x: 640, y: 0 },
+        { x: 640, y: 360 },
+        { x: 0,   y: 360 },
+    ];
+
+    let videoEl     = null;   // elemento <video> fuente
+    let animFrameId = null;   // ID de requestAnimationFrame
+    // (motor de exportación: WebCodecs + webm-muxer, no requiere MediaRecorder)
+
+    /* ──────────────────────────────────────────────────────────────────
+       THREE.JS – variables de la escena
+    ────────────────────────────────────────────────────────────────── */
+    let renderer, scene, camera;
+    let videoTexture, shaderMaterial, planeMesh;
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECCIÓN 1 – SHADERS GLSL
+       ▸ Vertex Shader  : pasa las coordenadas de textura (UV) al fragment.
+       ▸ Fragment Shader: aplica chroma key + esquinas redondeadas.
+    ══════════════════════════════════════════════════════════════════ */
+
+    /**
+    ══════════════════════════════════════════════════════════════════ */
+
+    const VERTEX_SHADER = /* glsl */`
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `;
+
+    const FRAGMENT_SHADER = /* glsl */`
+        uniform sampler2D uVideoTexture;
+        uniform vec3      uChromaColor;
+        uniform float     uTolerance;
+        uniform float     uSoftness;
+        uniform float     uCornerRadius;
+        uniform vec3      uBgColor;
+        uniform mat3      uHomography;
+        varying vec2      vUv;
+
+        float chromaKeyFactor(vec3 pixel, vec3 key, float tol, float softness) {
+            return smoothstep(tol - softness, tol + softness, distance(pixel, key));
+        }
+
+        float roundedCornerMask(vec2 uv, float radius) {
+            vec2 centered = abs(uv - 0.5);
+            vec2 corner   = max(centered - (0.5 - radius), 0.0);
+            return smoothstep(radius, radius - 0.002, length(corner));
+        }
+
+        void main() {
+            vec3 uvH = uHomography * vec3(vUv, 1.0);
+            vec2 uv  = uvH.xy / uvH.z;
+
+            if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+                gl_FragColor = vec4(uBgColor, 1.0);
+                return;
+            }
+
+            vec4 videoColor = texture2D(uVideoTexture, uv);
+            float chromaFactor = chromaKeyFactor(videoColor.rgb, uChromaColor, uTolerance, uSoftness);
+            float cornerMask = roundedCornerMask(uv, uCornerRadius);
+
+            float videoFactor = chromaFactor * cornerMask;
+            vec3  finalColor  = mix(uBgColor, videoColor.rgb, videoFactor);
+            gl_FragColor = vec4(finalColor, 1.0);
+        }
+    `;
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECCIÓN 2 – INICIALIZACIÓN DE THREE.JS
+    ══════════════════════════════════════════════════════════════════ */
+
+    function initThreeJS() {
+        renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(cW, cH);
+        renderer.setClearColor(0x000000, 1);
+        container.appendChild(renderer.domElement);
+
+        camera = new THREE.OrthographicCamera(-cW/2, cW/2, cH/2, -cH/2, 0.1, 1000);
+        camera.position.z = 10;
+        scene = new THREE.Scene();
+
+        videoTexture = new THREE.VideoTexture(videoEl);
+        videoTexture.minFilter = THREE.LinearFilter;
+        videoTexture.magFilter = THREE.LinearFilter;
+        videoTexture.format    = THREE.RGBAFormat;
+
+        shaderMaterial = new THREE.ShaderMaterial({
+            vertexShader:   VERTEX_SHADER,
+            fragmentShader: FRAGMENT_SHADER,
+            uniforms: {
+                uVideoTexture: { value: videoTexture },
+                uChromaColor:  { value: hexToVec3(chromaColorInput.value) },
+                uTolerance:    { value: parseFloat(chromaTolInput.value) },
+                uSoftness:     { value: parseFloat(chromaSmoothInput.value) },
+                uCornerRadius: { value: parseFloat(cornerRadiusInput.value) },
+                uBgColor:      { value: hexToVec3(document.getElementById('bg-color').value) },
+                uHomography:   { value: new THREE.Matrix3() },
+            },
+            transparent: false,
+            side: THREE.DoubleSide,
+        });
+
+        // Plano del tamaño exacto del canvas. Sus UVs van de (0,0) a (1,1).
+        // El shader usa esas UVs con la homografía para calcular perspectiva correcta.
+        planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(cW, cH), shaderMaterial);
+        scene.add(planeMesh);
+
+        updateHomography();
+        setStatus('Video cargado. Arrastra los pines para deformar la perspectiva.', 'ok');
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECCIÓN 3 – HOMOGRAFÍA PERSPECTIVA-CORRECTA (DLT)
+    ══════════════════════════════════════════════════════════════════ */
+
+    function computeHomographyDLT(srcPts, dstPts) {
+        const rows = [];
+        for (let i = 0; i < 4; i++) {
+            const [x, y] = srcPts[i], [u, v] = dstPts[i];
+            rows.push([-x,-y,-1, 0, 0, 0, x*u, y*u, u]);
+            rows.push([ 0, 0, 0,-x,-y,-1, x*v, y*v, v]);
+        }
+        const n = 8;
+        const aug = rows.map(r => [...r.slice(0,n), -r[n]]);
+        for (let col = 0; col < n; col++) {
+            let mx = col;
+            for (let r = col+1; r < n; r++) if (Math.abs(aug[r][col]) > Math.abs(aug[mx][col])) mx = r;
+            [aug[col], aug[mx]] = [aug[mx], aug[col]];
+            if (Math.abs(aug[col][col]) < 1e-12) continue;
+            for (let r = 0; r < n; r++) {
+                if (r === col) continue;
+                const f = aug[r][col] / aug[col][col];
+                for (let c = col; c <= n; c++) aug[r][c] -= f * aug[col][c];
+            }
+        }
+        const h = aug.map((row, i) => row[n] / row[i]);
+        return [...h, 1.0];
+    }
+
+    function updateHomography() {
+        if (!shaderMaterial) return;
+        // Convertir pines CSS a UV del canvas (Y flip: CSS top -> UV v=1)
+        const canvasUV = pinCoords.map(p => [p.x / cW, 1 - p.y / cH]);
+        // UV destino del video: TL->(0,1), TR->(1,1), BR->(1,0), BL->(0,0)
+        const videoUV  = [[0,1],[1,1],[1,0],[0,0]];
+        const H = computeHomographyDLT(canvasUV, videoUV);
+        shaderMaterial.uniforms.uHomography.value.set(
+            H[0], H[1], H[2],
+            H[3], H[4], H[5],
+            H[6], H[7], H[8]
+        );
+        updatePinOverlay();
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECCIÓN 4 – POSICIONAMIENTO Y ARRASTRE DE PINES (DOM)
+    ══════════════════════════════════════════════════════════════════ */
+
+    /**
+     * resetPins()
+     * Coloca los 4 pines exactamente en las esquinas del contenedor.
+     * Se llama al cargar un video y cuando el usuario presiona "Resetear".
+     */
+    function resetPins() {
+        pinCoords[0] = { x: 0,  y: 0  };   // TL
+        pinCoords[1] = { x: cW, y: 0  };   // TR
+        pinCoords[2] = { x: cW, y: cH };   // BR
+        pinCoords[3] = { x: 0,  y: cH };   // BL
+
+        pinEls.forEach((el, i) => applyPinPosition(el, pinCoords[i]));
+
+        // Si ya existe el plano en Three.js, actualizamos los vértices también
+        if (planeMesh) updateHomography();
+    }
+
+    /**
+     * applyPinPosition(el, coord)
+     * Aplica las coordenadas (en píxeles CSS relativos al contenedor)
+     * al estilo del elemento DOM del pin.
+     * El CSS transform:translate(-50%,-50%) se encarga de centrar el círculo.
+     */
+    function applyPinPosition(el, coord) {
+        el.style.left = coord.x + 'px';
+        el.style.top  = coord.y + 'px';
+    }
+
+    /**
+     * updatePinOverlay()
+     * Dibuja las líneas guía en el SVG que conectan los 4 pines,
+     * formando el cuadrilátero de referencia visual.
+     */
+    function updatePinOverlay() {
+        // Orden: TL → TR → BR → BL → TL (cierra el polígono)
+        const pts = [
+            pinCoords[0], pinCoords[1], pinCoords[2],
+            pinCoords[3], pinCoords[0],
+        ].map(p => `${p.x},${p.y}`).join(' ');
+
+        pinOutlineSVG.setAttribute('points', pts);
+    }
+
+    // ── Drag & Drop de los Pines ──────────────────────────────────────
+
+    let activePin    = null; // índice del pin activo (0-3) o null
+    let activePinEl  = null; // elemento DOM del pin activo
+
+    pinEls.forEach((el, index) => {
+        el.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            activePin   = index;
+            activePinEl = el;
+            el.classList.add('dragging');
+        });
+
+        // Soporte táctil
+        el.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            activePin   = index;
+            activePinEl = el;
+            el.classList.add('dragging');
+        }, { passive: false });
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (activePin === null) return;
+        movePinTo(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('touchmove', (e) => {
+        if (activePin === null) return;
+        e.preventDefault();
+        movePinTo(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+
+    document.addEventListener('mouseup',  stopDrag);
+    document.addEventListener('touchend', stopDrag);
+
+    /**
+     * movePinTo(clientX, clientY)
+     * Calcula la posición del cursor relativa al contenedor,
+     * actualiza las coordenadas del pin y reposiciona el elemento DOM.
+     */
+    function movePinTo(clientX, clientY) {
+        const rect = container.getBoundingClientRect();
+
+        // Coordenadas relativas al contenedor, con límites amplios para que
+        // el usuario pueda mover los pines un poco fuera del borde si quiere.
+        let x = Math.max(-40, Math.min(cW + 40, clientX - rect.left));
+        let y = Math.max(-40, Math.min(cH + 40, clientY - rect.top));
+
+        pinCoords[activePin] = { x, y };
+        applyPinPosition(activePinEl, { x, y });
+
+        // Actualizamos los vértices del plano en tiempo real mientras se arrastra
+        if (planeMesh) updateHomography();
+    }
+
+    function stopDrag() {
+        if (activePinEl) activePinEl.classList.remove('dragging');
+        activePin   = null;
+        activePinEl = null;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECCIÓN 5 – LOOP DE ANIMACIÓN
+    ══════════════════════════════════════════════════════════════════ */
+
+    /**
+     * animate()
+     * El corazón del editor: se ejecuta ~60 veces por segundo.
+     * En cada frame:
+     *   1. Actualiza la textura del video (Three.js hace esto interno).
+     *   2. Actualiza los uniforms del shader (chroma params, etc.).
+     *   3. Renderiza la escena con el renderer de WebGL.
+     */
+    function animate() {
+        animFrameId = requestAnimationFrame(animate);
+
+        // Actualizamos los uniforms del shader con los valores actuales de los controles
+        // (hacerlo aquí garantiza que cada frame esté sincronizado, incluso si el usuario
+        // mueve los sliders durante la reproducción)
+        shaderMaterial.uniforms.uChromaColor.value  = hexToVec3(chromaColorInput.value);
+        shaderMaterial.uniforms.uTolerance.value     = parseFloat(chromaTolInput.value);
+        shaderMaterial.uniforms.uSoftness.value      = parseFloat(chromaSmoothInput.value);
+        shaderMaterial.uniforms.uCornerRadius.value  = parseFloat(cornerRadiusInput.value);
+        shaderMaterial.uniforms.uBgColor.value       = hexToVec3(document.getElementById('bg-color').value);
+
+        // Renderizamos la escena
+        renderer.render(scene, camera);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECCIÓN 6 – MOTOR DE EXPORTACIÓN (WebCodecs + webm-muxer)
+    ══════════════════════════════════════════════════════════════════
+
+    En lugar de MediaRecorder (que requiere reproducir el video en
+    tiempo real), usamos la API WebCodecs para renderizar frame por
+    frame a máxima velocidad, sin importar la duración del video.
+
+    FLUJO:
+      1. Calculamos cuántos frames tiene el video (duración × FPS).
+      2. Por cada frame:
+           a. Avanzamos videoEl.currentTime al tiempo exacto.
+           b. Esperamos el evento 'seeked' para que la GPU actualice.
+           c. Renderizamos la escena Three.js (shader + perspectiva).
+           d. Capturamos el canvas como VideoFrame y lo codificamos.
+      3. El muxer empaqueta los chunks VP9 en un archivo .webm.
+      4. Se descarga el archivo resultante.
+
+    VENTAJA: exporta un video de 30 segundos en ~5-10 segundos,
+    en lugar de tener que esperar 30 segundos en tiempo real.
+    ══════════════════════════════════════════════════════════════════ */
+
+    document.getElementById('btn-export').addEventListener('click', startExport);
+
+    async function startExport() {
+        if (!renderer || !videoEl) {
+            alert('Primero carga un video.');
+            return;
+        }
+
+        // Verificar soporte de WebCodecs (Chrome 94+, Edge 94+)
+        if (!window.VideoEncoder) {
+            alert('Tu navegador no soporta exportación rápida.\nUsa Chrome 94+ o Edge 94+.');
+            return;
+        }
+
+        const btnExport = document.getElementById('btn-export');
+        btnExport.disabled = true;
+        btnExport.textContent = '⚡ Exportando...';
+
+        // Pausar el loop de preview para no interferir con el export
+        if (animFrameId) {
+            cancelAnimationFrame(animFrameId);
+            animFrameId = null;
+        }
+
+        // Dimensiones del canvas de Three.js
+        const W = renderer.domElement.width;
+        const H = renderer.domElement.height;
+
+        // Parámetros de exportación
+        const FPS         = 60;
+        const totalSec    = videoEl.duration;
+
+        // Validar duración — puede ser Infinity si el archivo no tiene
+        // el moov atom al inicio (común en screen recorders).
+        if (!isFinite(totalSec) || totalSec <= 0) {
+            alert(
+                'No se puede exportar: la duración del video es inválida.\n\n' +
+                'Esto ocurre con algunos grabadores de pantalla.\n' +
+                'Espera a que el editor muestre la duración detectada (barra de estado)\n' +
+                'y vuelve a intentarlo.'
+            );
+            btnExport.disabled = false;
+            btnExport.textContent = '⏺ Exportar';
+            videoEl.play().then(() => animate());
+            return;
+        }
+
+        const totalFrames = Math.ceil(totalSec * FPS);
+        const FRAME_US    = Math.round(1_000_000 / FPS); // microsegundos por frame
+
+        try {
+            setStatus('📦 Cargando muxer...', '');
+
+            // Importamos webm-muxer dinámicamente (igual que en BulletsVideoGenerador)
+            const { Muxer, ArrayBufferTarget } =
+                await import('https://cdn.jsdelivr.net/npm/webm-muxer@3/+esm');
+
+            // ── 1. Configurar el muxer WebM ──────────────────────────────
+            const muxer = new Muxer({
+                target: new ArrayBufferTarget(),
+                video: {
+                    codec: 'V_VP9',
+                    width: W,
+                    height: H,
+                    frameRate: FPS,
+                },
+                firstTimestampBehavior: 'offset',
+            });
+
+            // ── 2. Configurar el VideoEncoder (WebCodecs) ─────────────────
+            // El encoder recibe VideoFrames y produce chunks codificados en VP9.
+            const encoder = new VideoEncoder({
+                output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+                error: (e) => { throw e; },
+            });
+
+            encoder.configure({
+                codec:     'vp09.00.10.08',   // VP9 perfil 0, nivel 1.0, 8-bit
+                width:     W,
+                height:    H,
+                bitrate:   15_000_000,         // 15 Mbps – alta calidad
+                framerate: FPS,
+                // NOTA: alpha en VP9/WebCodecs no está soportado de forma estable
+                // en Chrome. El chroma key sigue funcionando visualmente en canvas;
+                // el canal alfa se pierde al codificar (fondo negro = áreas transparentes).
+            });
+
+            // Pausamos el video y lo llevamos al inicio para el seek frame a frame
+            videoEl.pause();
+            videoEl.currentTime = 0;
+
+            // ── 3. Loop de frames ─────────────────────────────────────────
+            // Por cada frame, avanzamos el tiempo del video, esperamos que
+            // la GPU actualice la textura, renderizamos con Three.js y
+            // capturamos el frame resultante.
+            for (let i = 0; i < totalFrames; i++) {
+
+                // Tiempo en segundos que le corresponde a este frame
+                const targetTimeSec = i / FPS;
+
+                // Avanzamos el video al tiempo exacto del frame
+                // Solo hacemos seek si la diferencia es mayor a medio frame
+                if (Math.abs(videoEl.currentTime - targetTimeSec) > (0.5 / FPS)) {
+                    videoEl.currentTime = targetTimeSec;
+
+                    // Esperamos a que el frame esté disponible en la GPU.
+                    // El evento 'seeked' indica que el video decodificó el frame.
+                    // Si tarda más de 500ms, continuamos de todas formas.
+                    await new Promise(resolve => {
+                        const onSeeked = () => {
+                            videoEl.removeEventListener('seeked', onSeeked);
+                            resolve();
+                        };
+                        videoEl.addEventListener('seeked', onSeeked);
+                        setTimeout(resolve, 500); // timeout de seguridad
+                    });
+                }
+
+                // Forzamos que Three.js actualice la VideoTexture del frame actual
+                // y re-renderizamos la escena completa (shader + perspectiva)
+                if (videoTexture) videoTexture.needsUpdate = true;
+                renderer.render(scene, camera);
+
+                // Capturamos el canvas como VideoFrame en el timestamp correcto
+                const frame = new VideoFrame(renderer.domElement, {
+                    timestamp: i * FRAME_US,
+                });
+
+                // Codificamos el frame (keyframe cada 2 segundos)
+                encoder.encode(frame, { keyFrame: i % (FPS * 2) === 0 });
+                frame.close();
+
+                // Cada 30 frames actualizamos el progreso en la UI
+                if (i % 30 === 0) {
+                    const pct = Math.round((i / totalFrames) * 100);
+                    setStatus(`⚡ Exportando: ${pct}% (frame ${i}/${totalFrames})`, 'recording');
+                    // Cedemos el hilo al navegador para que actualice la UI
+                    await new Promise(r => setTimeout(r, 0));
+                }
+            }
+
+            // ── 4. Finalizar y descargar ──────────────────────────────────
+            setStatus('⚡ Finalizando archivo...', 'recording');
+            await encoder.flush();   // espera a que terminen de codificarse todos los frames
+            muxer.finalize();        // cierra el contenedor WebM correctamente
+
+            // Creamos el Blob y disparamos la descarga
+            const blob = new Blob([muxer.target.buffer], { type: 'video/webm' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href     = url;
+            a.download = `video-editado-${Date.now()}.webm`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            setStatus('✅ Video exportado y descargado correctamente.', 'ok');
+
+        } catch (err) {
+            console.error('Error en exportación:', err);
+            setStatus(`❌ Error al exportar: ${err.message}`, '');
+            alert('Error al exportar:\n' + err.message);
+        } finally {
+            // Restauramos el estado del editor
+            btnExport.disabled = false;
+            btnExport.textContent = '⏺ Exportar';
+
+            // Reanudamos el loop de preview y la reproducción del video
+            videoEl.currentTime = 0;
+            videoEl.play().then(() => animate());
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECCIÓN 7 – CARGA DE VIDEO Y DETECCIÓN DE FORMATO
+    ══════════════════════════════════════════════════════════════════ */
+
+    /**
+     * loadVideo(file)
+     * Crea un elemento <video> oculto, le asigna la URL del archivo,
+     * espera los metadatos para conocer la resolución nativa,
+     * y luego inicializa Three.js con el tamaño correcto.
+     */
+    function loadVideo(file) {
+        // Limpiamos el estado anterior si había un video cargado
+        cleanupScene();
+
+        setStatus('⏳ Cargando video...', '');
+
+        videoEl = document.createElement('video');
+        videoEl.loop    = false;
+        videoEl.muted   = true;
+        videoEl.autoplay = false;
+        videoEl.playsInline = true;
+        videoEl.style.display = 'none';
+        document.body.appendChild(videoEl);
+
+        const fileURL = URL.createObjectURL(file);
+        videoEl.src   = fileURL;
+
+        // Usamos 'loadedmetadata' para obtener dimensiones,
+        // pero la duración puede seguir siendo Infinity en ese momento.
+        videoEl.addEventListener('loadedmetadata', () => {
+            const vW = videoEl.videoWidth;
+            const vH = videoEl.videoHeight;
+
+            // Si no se obtuvieron dimensiones válidas, el codec no es soportado
+            if (!vW || !vH) {
+                setStatus('❌ Codec no soportado. Intenta convertir el video a H.264 MP4.', '');
+                return;
+            }
+
+            const ratio = vW / vH;
+            const MAX = 640;
+
+            if (ratio >= 1) {
+                cW = MAX;
+                cH = Math.round(MAX / ratio);
+            } else {
+                cH = MAX;
+                cW = Math.round(MAX * ratio);
+            }
+
+            container.style.width  = cW + 'px';
+            container.style.height = cH + 'px';
+
+            dropZone.style.display      = 'none';
+            editorWrapper.style.display = 'flex';
+
+            resetPins();
+            initThreeJS();
+
+            // ── Manejo de duration=Infinity (grabadores de pantalla) ─────
+            //
+            // Los screen recorders graban en modo "streaming" y no escriben
+            // la duración real en el encabezado del MP4 (moov atom al final).
+            // El navegador reporta duration=Infinity porque no sabe cuándo termina.
+            //
+            // TRUCO: Hacer seek a un tiempo absurdamente grande (99999 s)
+            // obliga al navegador a leer hasta el final del archivo y así
+            // descubrir la duración real. El evento 'durationchange' dispara
+            // cuando el valor se actualiza con el número correcto.
+
+            if (!isFinite(videoEl.duration)) {
+                setStatus('⏳ Detectando duración del video (screen recorder)...', '');
+
+                const onDurationChange = () => {
+                    if (isFinite(videoEl.duration)) {
+                        videoEl.removeEventListener('durationchange', onDurationChange);
+                        // Volvemos al inicio y arrancamos la previsualización
+                        videoEl.currentTime = 0;
+                        videoEl.play().then(() => animate());
+                        setStatus(`✅ Duración detectada: ${videoEl.duration.toFixed(2)}s. Video listo.`, 'ok');
+                    }
+                };
+
+                videoEl.addEventListener('durationchange', onDurationChange);
+
+                // El seek forzado al final dispara la lectura del archivo completo
+                videoEl.currentTime = 99999;
+
+            } else {
+                // Duración normal → arrancamos directo
+                videoEl.play().then(() => animate());
+                setStatus('Video cargado. Arrastra los pines para deformar la perspectiva.', 'ok');
+            }
+        });
+
+        videoEl.addEventListener('error', (e) => {
+            const codes = {
+                1: 'Carga abortada',
+                2: 'Error de red',
+                3: 'Error de decodificación (codec no soportado: prueba H.264 MP4)',
+                4: 'Formato no soportado por el navegador',
+            };
+            const msg = codes[e.target.error?.code] || 'Error desconocido';
+            setStatus(`❌ ${msg}`, '');
+        });
+    }
+
+    /**
+     * cleanupScene()
+     * Libera todos los recursos de Three.js y cancela el animation loop.
+     * Esencial para evitar memory leaks al cargar un segundo video.
+     */
+    function cleanupScene() {
+        if (animFrameId) {
+            cancelAnimationFrame(animFrameId);
+            animFrameId = null;
+        }
+        if (renderer) {
+            renderer.dispose();
+            renderer.domElement.remove();
+            renderer = null;
+        }
+        if (videoTexture) { videoTexture.dispose(); videoTexture = null; }
+        if (shaderMaterial) { shaderMaterial.dispose(); shaderMaterial = null; }
+        if (planeMesh) {
+            planeMesh.geometry.dispose();
+            planeMesh = null;
+        }
+        if (videoEl) {
+            videoEl.pause();
+            videoEl.remove();
+            videoEl = null;
+        }
+        scene = null;
+        camera = null;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECCIÓN 8 – EVENTOS DE LA UI (controles, botones, drag&drop)
+    ══════════════════════════════════════════════════════════════════ */
+
+    // Drop Zone – clic
+    dropZone.addEventListener('click', () => videoUploader.click());
+
+    // Extensiones de video reconocidas
+    const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v', 'ogv', '3gp'];
+
+    /**
+     * getFileFromDrop(dataTransfer)
+     * Intenta obtener el archivo de video desde el evento drop usando
+     * TODAS las formas posibles, en orden de prioridad:
+     *   1. dataTransfer.files     → funciona con la mayoría de archivos
+     *   2. dataTransfer.items     → fallback para cuando files está vacío
+     *      (algunos screen recorders / apps de terceros)
+     */
+    function getFileFromDrop(dataTransfer) {
+        // Intento 1: .files (lo más común)
+        const f = dataTransfer.files[0];
+        if (f) return f;
+
+        // Intento 2: .items (API más moderna, a veces necesaria)
+        if (dataTransfer.items && dataTransfer.items.length > 0) {
+            const item = dataTransfer.items[0];
+            if (item.kind === 'file') return item.getAsFile();
+        }
+
+        return null;
+    }
+
+    /**
+     * isVideoFile(file)
+     * Valida por MIME primero y por extensión como fallback.
+     * Necesario porque algunos screen recorders dejan file.type vacío ("").
+     */
+    function isVideoFile(file) {
+        if (!file) return false;
+        if (file.type && file.type.startsWith('video/')) return true;
+        const ext = (file.name || '').split('.').pop().toLowerCase();
+        return VIDEO_EXTS.includes(ext);
+    }
+
+    /**
+     * handleDroppedFile(dataTransfer)
+     * Lógica central de carga por drag & drop, con diagnóstico visible.
+     */
+    function handleDroppedFile(dataTransfer) {
+        const file = getFileFromDrop(dataTransfer);
+
+        // Debug visible: muestra exactamente qué recibió el navegador
+        if (!file) {
+            setStatus('⚠️ No se detectó ningún archivo. Intenta con el botón 📂 Cargar.', '');
+            return;
+        }
+
+        const ext = (file.name || '').split('.').pop().toLowerCase();
+        setStatus(`📂 Detectado: "${file.name}" · tipo: "${file.type || 'vacío'}" · ext: .${ext}`, '');
+
+        if (isVideoFile(file)) {
+            loadVideo(file);
+        } else {
+            setStatus(`❌ "${file.name}" no es un video reconocido. (tipo: "${file.type}", ext: .${ext})`, '');
+        }
+    }
+
+    // ── Drop Zone (zona inicial) ──────────────────────────────────────
+    dropZone.addEventListener('dragover',  (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)'; });
+    dropZone.addEventListener('dragleave', ()  => { dropZone.style.borderColor = ''; });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.style.borderColor = '';
+        handleDroppedFile(e.dataTransfer);
+    });
+
+    // ── Drop sobre cualquier parte de la página (para recargar video) ─
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.target === dropZone || dropZone.contains(e.target)) return;
+        handleDroppedFile(e.dataTransfer);
+    });
+
+    // ── Input file (botón Cargar) ─────────────────────────────────────
+    videoUploader.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) loadVideo(file);
+        e.target.value = '';
+    });
+
+    // Botón "Cargar" en el panel de controles
+    document.getElementById('btn-load').addEventListener('click', () => {
+        videoUploader.click();
+    });
+
+    // Botón "Resetear pines"
+    document.getElementById('btn-reset-pins').addEventListener('click', resetPins);
+
+    // Sliders – actualizar etiquetas de valor en tiempo real
+    chromaTolInput.addEventListener('input', () => {
+        valTol.textContent = parseFloat(chromaTolInput.value).toFixed(2);
+    });
+    chromaSmoothInput.addEventListener('input', () => {
+        valSmooth.textContent = parseFloat(chromaSmoothInput.value).toFixed(2);
+    });
+    cornerRadiusInput.addEventListener('input', () => {
+        valRadius.textContent = parseFloat(cornerRadiusInput.value).toFixed(3);
+    });
+
+    // Color picker – actualizar label hex
+    chromaColorInput.addEventListener('input', () => {
+        chromaHexLabel.textContent = chromaColorInput.value;
+    });
+
+    // Color picker de fondo – actualizar label hex
+    document.getElementById('bg-color').addEventListener('input', (e) => {
+        document.getElementById('bg-hex').textContent = e.target.value;
+    });
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECCIÓN 9 – UTILIDADES
+    ══════════════════════════════════════════════════════════════════ */
+
+    /**
+     * hexToVec3(hex)
+     * Convierte un color hexadecimal CSS ('#00ff00') a un THREE.Vector3
+     * con componentes en rango 0.0–1.0, que es lo que entiende el shader.
+     */
+    function hexToVec3(hex) {
+        const r = parseInt(hex.slice(1, 3), 16) / 255;
+        const g = parseInt(hex.slice(3, 5), 16) / 255;
+        const b = parseInt(hex.slice(5, 7), 16) / 255;
+        return new THREE.Vector3(r, g, b);
+    }
+
+    /**
+     * setStatus(msg, type)
+     * Actualiza la barra de estado con un mensaje y clase CSS.
+     */
+    function setStatus(msg, type) {
+        statusBar.textContent = msg;
+        statusBar.className   = type || '';
+    }
+
+    </script>
+</body>
+</html>
