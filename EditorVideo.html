@@ -568,15 +568,26 @@
     /* ══════════════════════════════════════════════════════════════════
        LOOP DE ANIMACIÓN Y CARGA
     ══════════════════════════════════════════════════════════════════ */
+    /* ══════════════════════════════════════════════════════════════════
+       SECCIÓN 5 – LOOP DE ANIMACIÓN
+    ══════════════════════════════════════════════════════════════════ */
     function animate() {
         animFrameId = requestAnimationFrame(animate);
+        
         if(shaderMaterial) {
+            // Obtenemos el valor actual del color de fondo seleccionado en la UI
+            const bgColorHex = document.getElementById('bg-color').value;
+
             shaderMaterial.uniforms.uChromaColor.value  = hexToVec3(chromaColorInput.value);
             shaderMaterial.uniforms.uTolerance.value     = parseFloat(chromaTolInput.value);
             shaderMaterial.uniforms.uSoftness.value      = parseFloat(chromaSmoothInput.value);
             shaderMaterial.uniforms.uCornerRadius.value  = parseFloat(cornerRadiusInput.value);
-            shaderMaterial.uniforms.uBgColor.value       = hexToVec3(document.getElementById('bg-color').value);
+            shaderMaterial.uniforms.uBgColor.value       = hexToVec3(bgColorHex);
+
+            // CORRECCIÓN: Sincronizamos el fondo completo de WebGL con el color seleccionado
+            renderer.setClearColor(bgColorHex, 1);
         }
+        
         renderer.render(scene, camera);
     }
 
