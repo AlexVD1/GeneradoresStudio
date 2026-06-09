@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapCut Counter Studio V5.1 - Seamless Edition</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #f8fafc;
+            --accent: #22d3ee;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .back-nav {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            display: inline-flex; align-items: center; padding: 8px 16px;
+            background: #334155; color: #f8fafc; text-decoration: none;
+            border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+            transition: 0.2s; border: 1px solid #475569;
+        }
+        .back-btn:hover { background: #475569; transform: translateX(-3px); }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--panel);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        h1 { font-weight: 800; margin: 0 0 5px 0; font-size: 1.8rem; text-align: center; }
+        .subtitle { color: #94a3b8; font-size: 0.9rem; margin-bottom: 5px; text-align: center; }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; }
+        
+        input, select {
+            padding: 10px 12px;
+            background: #242f42;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--primary); }
+
+        .row-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+        button {
+            width: 100%; padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; transition: 0.2s; font-size: 0.95rem;
+        }
+        .btn-success { background: var(--success); color: white; margin-top: 10px; }
+        .btn-success:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-accent { background: var(--primary); color: white; margin-top: 5px; }
+        .btn-accent:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+        .info-box {
+            background: rgba(34, 211, 238, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        .stats-panel {
+            background: #0f172a;
+            border: 1px solid #334155;
+            padding: 12px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-value { font-family: monospace; font-size: 1.1rem; font-weight: bold; color: var(--success); }
+        .stat-value.warning { color: var(--warning); }
+        .stat-value.danger { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="back-nav"><a href="index.html" class="back-btn">← Volver al Menú Principal</a></div>
+
+    <div>
+        <h1>CapCut Counter Studio V5.1</h1>
+        <div class="subtitle">Generador Seamless con Feedback Visual</div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div class="info-box">
+                <strong>🔧 Corrección Seamless:</strong> Los bloques ahora se generan con una diferencia estricta de 1 milisegundo. Esto evita el error de CapCut y garantiza que los clips de subtítulos queden magnéticamente pegados en tu línea de tiempo sin parpadeos.
+            </div>
+
+            <div class="row-inputs">
+                <div class="form-group">
+                    <label>Valor Inicial</label>
+                    <input type="number" id="startVal" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Valor Máximo</label>
+                    <input type="number" id="endVal" value="100000">
+                </div>
+            </div>
+
+            <div class="row-inputs">
+                <div class="form-group">
+                    <label>De cuánto en cuánto sube (Salto)</label>
+                    <input type="number" id="stepVal" value="5000">
+                </div>
+                <div class="form-group">
+                    <label>Duración Total (Segundos)</label>
+                    <input type="number" id="duration" value="5" min="1" max="60" step="0.5">
+                </div>
+            </div>
+
+            <div class="stats-panel">
+                <div>
+                    <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Bloques generados</div>
+                    <div id="blockCount" class="stat-value">20 bloques</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Duración por bloque</div>
+                    <div id="timePerBlock" class="stat-value">0.25 seg</div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Prefijo / Sufijo (Opcional)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="prefix" placeholder="Ej: + o $" style="flex: 1;">
+                    <input type="text" id="suffix" placeholder="Ej: Pts" style="flex: 1;">
+                </div>
+            </div>
+
+            <button id="exportSrtBtn" class="btn-success">Descargar .SRT (Pegado Perfecto)</button>
+            <button id="exportLrcBtn" class="btn-accent">Descargar .LRC (Alternativa si SRT falla)</button>
+        </div>
+    </div>
+
+    <script>
+        const startValInput = document.getElementById('startVal');
+        const endValInput = document.getElementById('endVal');
+        const stepValInput = document.getElementById('stepVal');
+        const durationInput = document.getElementById('duration');
+        const prefixInput = document.getElementById('prefix');
+        const suffixInput = document.getElementById('suffix');
+        
+        const blockCountEl = document.getElementById('blockCount');
+        const timePerBlockEl = document.getElementById('timePerBlock');
+
+        function updateStats() {
+            try {
+                const start = parseFloat(startValInput.value) || 0;
+                const end = parseFloat(endValInput.value) || 0;
+                let step = parseFloat(stepValInput.value) || 1;
+                const dur = parseFloat(durationInput.value) || 1;
+
+                if (step <= 0) step = 1;
+                
+                const range = Math.abs(end - start);
+                let blocks = Math.ceil(range / step);
+                if (blocks === 0) blocks = 1; 
+                
+                if (blocks > 500) blocks = 500;
+
+                const timePerBlock = dur / blocks;
+
+                blockCountEl.textContent = `${blocks} bloques`;
+                timePerBlockEl.textContent = `${timePerBlock.toFixed(2)} seg`;
+
+                if (blocks <= 60) {
+                    blockCountEl.className = 'stat-value';
+                    timePerBlockEl.className = 'stat-value';
+                } else if (blocks <= 150) {
+                    blockCountEl.className = 'stat-value warning';
+                    timePerBlockEl.className = 'stat-value warning';
+                } else {
+                    blockCountEl.className = 'stat-value danger';
+                    timePerBlockEl.className = 'stat-value danger';
+                }
+            } catch (e) {
+                console.error("Error actualizando stats:", e);
+            }
+        }
+
+        ['input', 'change'].forEach(evt => {
+            startValInput.addEventListener(evt, updateStats);
+            endValInput.addEventListener(evt, updateStats);
+            stepValInput.addEventListener(evt, updateStats);
+            durationInput.addEventListener(evt, updateStats);
+        });
+
+        function formatTimeLRC(timeMs) {
+            const m = Math.floor(timeMs / 60000);
+            const s = Math.floor((timeMs % 60000) / 1000);
+            const cs = Math.floor((timeMs % 1000) / 10);
+            return `[${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}]`;
+        }
+
+        function formatTimeSRT(timeMs) {
+            const h = Math.floor(timeMs / 3600000);
+            const m = Math.floor((timeMs % 3600000) / 60000);
+            const s = Math.floor((timeMs % 60000) / 1000);
+            const ms = Math.floor(timeMs % 1000);
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
+        }
+
+        function generateFile(type, btnElement) {
+            try {
+                const start = parseFloat(startValInput.value) || 0;
+                const end = parseFloat(endValInput.value) || 100000;
+                let step = parseFloat(stepValInput.value) || 5000;
+                const durationSec = parseFloat(durationInput.value) || 5;
+                const prefix = prefixInput.value;
+                const suffix = suffixInput.value;
+
+                if (step <= 0) step = 1;
+                const range = end - start;
+                let blocks = Math.ceil(Math.abs(range) / step);
+                if (blocks === 0) blocks = 1;
+                if (blocks > 500) blocks = 500;
+
+                const timePerBlockMs = (durationSec * 1000) / blocks;
+                let content = "";
+
+                for (let i = 0; i < blocks; i++) {
+                    let currentVal = start + (i * step);
+                    if (i === blocks - 1) currentVal = end; 
+
+                    const formattedNumber = currentVal.toLocaleString('es-MX');
+                    const finalText = `${prefix}${formattedNumber} ${suffix}`.trim();
+                    
+                    const startTimeMs = Math.floor(i * timePerBlockMs);
+                    
+                    if (type === 'lrc') {
+                        content += `${formatTimeLRC(startTimeMs)}${finalText}\r\n`;
+                    } else {
+                        let endTimeMs = Math.floor((i + 1) * timePerBlockMs) - 1;
+                        if (i === blocks - 1) endTimeMs = Math.floor(durationSec * 1000);
+                        
+                        content += `${i + 1}\r\n`;
+                        content += `${formatTimeSRT(startTimeMs)} --> ${formatTimeSRT(endTimeMs)}\r\n`;
+                        content += `${finalText}\r\n\r\n`;
+                    }
+                }
+
+                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `contador_unido_${step}.${type}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                // Feedback visual en el botón
+                const originalText = btnElement.textContent;
+                btnElement.textContent = "¡Descargado con éxito!";
+                setTimeout(() => { btnElement.textContent = originalText; }, 2000);
+
+            } catch (error) {
+                alert("Hubo un error al generar el archivo: " + error.message);
+            }
+        }
+
+        document.getElementById('exportLrcBtn').onclick = function() { generateFile('lrc', this); };
+        document.getElementById('exportSrtBtn').onclick = function() { generateFile('srt', this); };
+
+        // Inicializar cálculos al cargar
+        updateStats();
+    </script>
+</body>
+</html>
