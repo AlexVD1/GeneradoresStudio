@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Convertidor a Postman v2.1.0</title>
+    <title>Convertidor a Postman v2.1.0 (Corregido)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .container { background: #fff; padding: 2.5rem; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; width: 90%; text-align: center; }
@@ -22,8 +22,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>Convertidor a Postman</h1>
-        <p>Sube tu archivo JSON original y conviértelo a Postman v2.1.0.</p>
+        <h1>Convertidor a Postman (Corregido)</h1>
+        <p>Sube tu archivo JSON original para corregir las URLs y el host.</p>
         
         <label class="file-label">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16" style="margin-bottom: 10px;">
@@ -78,7 +78,7 @@
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(convertedData, null, 2));
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", originalName + "_postman_v2.json");
+            downloadAnchorNode.setAttribute("download", originalName + "_postman_v2_fix.json");
             document.body.appendChild(downloadAnchorNode);
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
@@ -98,6 +98,16 @@
                 postmanCollection.item = tcData.requests.map(req => {
                     let rawUrl = (req.endpoint || "").replace(/<<([^>]+)>>/g, '{{$1}}');
                     
+                    // Extraer path y host para Postman
+                    let urlParts = rawUrl.split('?')[0].split('/');
+                    let host = [];
+                    let path = [];
+                    
+                    if(urlParts.length > 0) {
+                        host = [urlParts[0]]; // el {{ms-recibos-deposito}}
+                        path = urlParts.slice(1).filter(p => p !== "");
+                    }
+
                     let queryParams = [];
                     if (req.params && Array.isArray(req.params)) {
                         queryParams = req.params.map(p => ({
@@ -143,6 +153,8 @@
                             header: headers,
                             url: {
                                 raw: rawUrl,
+                                host: host,
+                                path: path,
                                 query: queryParams.length > 0 ? queryParams : undefined
                             },
                             body: Object.keys(body).length > 0 ? body : undefined
